@@ -1,0 +1,279 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a user of the robotics platform.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "student", "external"] },
+        "admin": { "type": "boolean", "description": "If true, user has admin privileges." },
+        "teamId": { "type": "string", "description": "ID of the team (turma) the student belongs to." },
+        "room": { "type": "string", "description": "The room (sala) assigned to the student." },
+        "points": { "type": "number", "description": "Total points earned by the student." },
+        "schoolId": { "type": "string", "description": "ID of the school the user belongs to." },
+        "certificates": { "type": "array", "items": { "type": "string" } },
+        "medals": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["gold", "silver", "bronze"] },
+              "date": { "type": "string", "description": "Month and year of the award (e.g., 2026-03)." }
+            }
+          }
+        }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A message for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User email." },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "read", "createdAt"]
+    },
+    "Metadata": {
+      "title": "Metadata",
+      "description": "System metadata.",
+      "type": "object",
+      "properties": {
+        "lastResetMonth": { "type": "string", "description": "Format: YYYY-MM" }
+      }
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "A single lesson or class.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "content": { "type": "string", "description": "Markdown or video URL." },
+        "category": { "type": "string" },
+        "teamId": { "type": "string", "description": "Optional: Only visible to this team." }
+      },
+      "required": ["title", "description", "content"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "A robotics component or kit for sale.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string", "enum": ["Componentes", "Kits", "Ferramentas", "Acessórios"] },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "promotionPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "string" }, "description": "IDs of products included in this kit." },
+        "extraItems": { "type": "array", "items": { "type": "string" }, "description": "Custom text items included in this kit." }
+      },
+      "required": ["name", "price", "stock"]
+    },
+    "Challenge": {
+      "title": "Challenge",
+      "description": "A quiz or activity for students.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["quiz", "activity"] },
+        "points": { "type": "number" },
+        "questions": { 
+          "type": "array", 
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" },
+              "options": { 
+                "type": "object",
+                "properties": {
+                  "A": { "type": "string" },
+                  "B": { "type": "string" },
+                  "C": { "type": "string" },
+                  "D": { "type": "string" }
+                }
+              },
+              "correctAnswers": { "type": "array", "items": { "type": "string", "enum": ["A", "B", "C", "D"] } }
+            }
+          },
+          "description": "For quizzes only. Minimum 3 questions." 
+        },
+        "teamId": { "type": "string" }
+      },
+      "required": ["title", "type", "points"]
+    },
+    "Submission": {
+      "title": "Submission",
+      "description": "A student's response to a challenge.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "challengeId": { "type": "string" },
+        "content": { "type": "string", "description": "For activities." },
+        "answers": { "type": "object", "description": "For quizzes. Map of questionId to selected options array." },
+        "status": { "type": "string", "enum": ["pending", "graded"] },
+        "grade": { "type": "number" },
+        "feedback": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "challengeId", "status"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "A group of students managed by an admin.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "studentIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A purchase made by a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "productIds": { "type": "array", "items": { "type": "string" } },
+        "total": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "Em separação", "Em trânsito", "Pronto para retirada", "Entregue", "Cancelado", "Aguardando Pagamento", "Pago"] },
+        "paymentId": { "type": "string" },
+        "deliveredAt": { "type": "string", "format": "date-time" },
+        "customerInfo": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "cpf": { "type": "string" },
+            "phone": { "type": "string" }
+          }
+        },
+        "deliveryMethod": { "type": "string", "enum": ["pickup", "delivery"] },
+        "schoolId": { "type": "string", "description": "ID of the school for pickup." },
+        "schoolName": { "type": "string", "description": "Name of the school for pickup." },
+        "deliveryAddress": {
+          "type": "object",
+          "properties": {
+            "cep": { "type": "string" },
+            "street": { "type": "string" },
+            "neighborhood": { "type": "string" },
+            "city": { "type": "string" },
+            "referencePoint": { "type": "string" },
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" }
+          }
+        },
+        "deliveryFee": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "productIds", "total", "status", "deliveryMethod"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "Admin notes about projects or classes.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "teamId": { "type": "string", "description": "Optional: Specific to a team or all if null." }
+      },
+      "required": ["title", "content"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on a lesson.",
+      "type": "object",
+      "properties": {
+        "lessonId": { "type": "string" },
+        "userId": { "type": "string", "description": "User email." },
+        "userName": { "type": "string" },
+        "schoolId": { "type": "string", "description": "ID of the school the comment belongs to." },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "likes": { "type": "array", "items": { "type": "string" }, "description": "List of user emails who liked." }
+      },
+      "required": ["lessonId", "userId", "userName", "content", "createdAt"]
+    },
+    "School": {
+      "title": "School",
+      "description": "An institutional partner school.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "adminIds": { "type": "array", "items": { "type": "string" }, "description": "List of admin emails." }
+      },
+      "required": ["name"]
+    },
+    "QuizCooldown": {
+      "title": "QuizCooldown",
+      "description": "Tracks cooldown for quiz attempts.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "challengeId": { "type": "string" },
+        "cooldownUntil": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "challengeId", "cooldownUntil"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "A collection of lessons and quizzes that grant a certificate upon completion.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "lessonIds": { "type": "array", "items": { "type": "string" } },
+        "challengeIds": { "type": "array", "items": { "type": "string" }, "description": "IDs of challenges of type 'quiz'." },
+        "pointsReward": { "type": "number" },
+        "thumbnail": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "lessonIds", "challengeIds"]
+    },
+    "Certificate": {
+      "title": "Certificate",
+      "description": "Awarded to a user for completing a course.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "User email." },
+        "userName": { "type": "string" },
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "issueDate": { "type": "string", "format": "date-time" },
+        "grade": { "type": "number", "description": "Average grade in course quizzes." }
+      },
+      "required": ["userId", "courseId", "issueDate", "grade"]
+    }
+  },
+  "firestore": {
+    "users": { "schema": "User", "description": "User profiles and roles." },
+    "lessons": { "schema": "Lesson", "description": "Educational content." },
+    "products": { "schema": "Product", "description": "Store inventory." },
+    "challenges": { "schema": "Challenge", "description": "Quizzes and activities." },
+    "submissions": { "schema": "Submission", "description": "Student work." },
+    "teams": { "schema": "Team", "description": "Student groupings." },
+    "orders": { "schema": "Order", "description": "Store transactions." },
+    "notes": { "schema": "Note", "description": "Admin internal notes." },
+    "comments": { "schema": "Comment", "description": "User comments on lessons." },
+    "schools": { "schema": "School", "description": "Institutional partner schools." },
+    "quizCooldowns": { "schema": "QuizCooldown", "description": "Cooldowns for quizzes." },
+    "courses": { "schema": "Course", "description": "Course definitions." },
+    "certificates": { "schema": "Certificate", "description": "Awarded certificates." },
+    "notifications": { "schema": "Notification", "description": "User notifications." },
+    "metadata": { "schema": "Metadata", "description": "System metadata." }
+  }
+}

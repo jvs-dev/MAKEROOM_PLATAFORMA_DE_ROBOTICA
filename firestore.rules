@@ -1,0 +1,383 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: email
+    // Fields: uid, name, email, role, admin, teamId, room, points, certificates
+    //
+    // Collection: lessons
+    // Fields: title, description, content, category, teamId
+    //
+    // Collection: products
+    // Fields: name, description, price, stock, imageUrl
+    //
+    // Collection: challenges
+    // Fields: title, description, type, points, questions, teamId
+    //
+    // Collection: submissions
+    // Fields: userId, challengeId, content, status, grade, feedback
+    //
+    // Collection: teams
+    // Fields: name, schoolId, studentIds
+    //
+    // Collection: orders
+    // Fields: userId, productIds, total, status, createdAt
+    //
+    // Collection: notes
+    // Fields: title, content, teamId
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.email == "jvssilv4@gmail.com" ||
+         (request.auth.token.email != null && 
+          exists(/databases/$(database)/documents/users/$(request.auth.token.email)) && 
+          (get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role == 'admin' ||
+           get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.admin == true)));
+    }
+
+    function isOwner(email) {
+      return isAuthenticated() && 
+             (request.auth.token.email == email || request.auth.uid == email);
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'name', 'email', 'role', 'admin', 'teamId', 'schoolId', 'room', 'points', 'certificates', 'completedLessons', 'photoURL', 'medals', 'id']) &&
+             data.uid is string &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.email is string && data.email.size() < 100 &&
+             data.role in ['student', 'admin', 'external'] &&
+             (!('admin' in data) || data.admin is bool) &&
+             (!('teamId' in data) || data.teamId == null || (data.teamId is string && data.teamId.size() < 50)) &&
+             (!('schoolId' in data) || data.schoolId == null || (data.schoolId is string && data.schoolId.size() < 50)) &&
+             (!('room' in data) || data.room == null || (data.room is string && data.room.size() < 50)) &&
+             (!('points' in data) || data.points is number) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 500)) &&
+             (!('completedLessons' in data) || data.completedLessons is list) &&
+             (!('medals' in data) || data.medals is list) &&
+             (!('certificates' in data) || data.certificates is list) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidLesson(data) {
+      return hasOnlyAllowedFields(['title', 'description', 'content', 'videoUrl', 'imageUrl', 'teamId', 'category', 'points', 'id']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() < 1000 &&
+             data.content is string && data.content.size() < 10000 &&
+             (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() < 500)) &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 500)) &&
+             (!('category' in data) || (data.category is string && data.category.size() < 100)) &&
+             (!('points' in data) || data.points is number) &&
+             (!('teamId' in data) || data.teamId == null || (data.teamId is string && data.teamId.size() < 50)) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidProduct(data) {
+      return hasOnlyAllowedFields(['name', 'description', 'category', 'price', 'originalPrice', 'promotionPrice', 'stock', 'imageUrl', 'items', 'extraItems', 'id']) &&
+             data.name is string && data.name.size() > 0 &&
+             (!('description' in data) || data.description is string) &&
+             (!('category' in data) || data.category is string) &&
+             data.price is number &&
+             (!('originalPrice' in data) || data.originalPrice is number) &&
+             (!('promotionPrice' in data) || data.promotionPrice is number) &&
+             data.stock is number &&
+             (!('imageUrl' in data) || data.imageUrl is string) &&
+             (!('items' in data) || data.items is list) &&
+             (!('extraItems' in data) || data.extraItems is list) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidChallenge(data) {
+      return hasOnlyAllowedFields(['title', 'description', 'type', 'points', 'questions', 'teamId', 'id']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             (!('description' in data) || (data.description is string && data.description.size() < 1000)) &&
+             data.type in ['quiz', 'activity'] &&
+             data.points is number && data.points >= 0 &&
+             (!('questions' in data) || (data.questions is list && data.questions.size() >= 3 && data.questions.size() < 50)) &&
+             (!('teamId' in data) || data.teamId == null || (data.teamId is string && data.teamId.size() < 50)) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidSubmission(data) {
+      return hasOnlyAllowedFields(['userId', 'userEmail', 'challengeId', 'status', 'content', 'answers', 'grade', 'earnedPoints', 'feedback', 'createdAt', 'id']) &&
+             data.userId is string && data.userId.size() < 100 &&
+             (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() < 100)) &&
+             data.challengeId is string && data.challengeId.size() < 100 &&
+             data.status in ['pending', 'graded'] &&
+             (!('content' in data) || (data.content is string && data.content.size() < 5000)) &&
+             (!('answers' in data) || data.answers is map) &&
+             (!('grade' in data) || (data.grade is number && data.grade >= 0 && data.grade <= 100)) &&
+             (!('earnedPoints' in data) || (data.earnedPoints is number && data.earnedPoints >= 0)) &&
+             (!('feedback' in data) || (data.feedback is string && data.feedback.size() < 1000)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidTeam(data) {
+      return hasOnlyAllowedFields(['name', 'schoolId', 'studentIds', 'id']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('schoolId' in data) || (data.schoolId is string && data.schoolId.size() < 50)) &&
+             (!('studentIds' in data) || data.studentIds is list) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidOrder(data) {
+      return hasOnlyAllowedFields(['userId', 'userEmail', 'productIds', 'total', 'status', 'createdAt', 'paymentId', 'id', 'customerInfo', 'deliveryMethod', 'schoolId', 'schoolName', 'deliveryAddress', 'deliveryFee', 'deliveredAt', 'cancelledAt', 'cancelledBy']) &&
+             data.userId is string && data.userId.size() < 100 &&
+             data.userEmail is string && data.userEmail.size() < 100 &&
+             data.productIds is list && data.productIds.size() < 50 &&
+             data.total is number && data.total >= 0 &&
+             data.status in ['pending', 'delivered', 'approved', 'rejected', 'Em separação', 'Em trânsito', 'Pronto para retirada', 'Entregue', 'Cancelado', 'Aguardando Pagamento', 'Pago', 'Em Análise'] &&
+             data.createdAt is timestamp &&
+             (!('paymentId' in data) || ((data.paymentId is string || data.paymentId is number) && (data.paymentId is string ? data.paymentId.size() < 100 : true))) &&
+             (!('id' in data) || data.id is string) &&
+             (!('customerInfo' in data) || data.customerInfo is map) &&
+             (!('deliveryMethod' in data) || (data.deliveryMethod is string && data.deliveryMethod.size() < 50)) &&
+             (!('schoolId' in data) || (data.schoolId is string && data.schoolId.size() < 50)) &&
+             (!('schoolName' in data) || (data.schoolName is string && data.schoolName.size() < 200)) &&
+             (!('deliveryAddress' in data) || data.deliveryAddress is map) &&
+             (!('deliveryFee' in data) || data.deliveryFee is number) &&
+             (!('deliveredAt' in data) || data.deliveredAt is timestamp) &&
+             (!('cancelledAt' in data) || data.cancelledAt is timestamp) &&
+             (!('cancelledBy' in data) || (data.cancelledBy is string && data.cancelledBy.size() < 50));
+    }
+
+    function isValidNote(data) {
+      return hasOnlyAllowedFields(['title', 'content', 'links', 'folderId', 'teamId', 'id']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() < 5000 &&
+             (!('links' in data) || data.links is list) &&
+             (!('folderId' in data) || data.folderId == null || (data.folderId is string && data.folderId.size() < 50)) &&
+             (!('teamId' in data) || data.teamId == null || (data.teamId is string && data.teamId.size() < 50)) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidComment(data) {
+      return hasOnlyAllowedFields(['lessonId', 'userId', 'userName', 'schoolId', 'content', 'createdAt', 'likes', 'id']) &&
+             data.lessonId is string && data.lessonId.size() < 100 &&
+             data.userId is string && data.userId.size() < 100 &&
+             data.userName is string && data.userName.size() < 100 &&
+             (!('schoolId' in data) || data.schoolId == null || (data.schoolId is string && data.schoolId.size() < 50)) &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 1000 &&
+             data.createdAt is timestamp &&
+             (!('likes' in data) || (data.likes is list && data.likes.size() < 1000)) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidFolder(data) {
+      return hasOnlyAllowedFields(['name', 'id']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidSchool(data) {
+      return hasOnlyAllowedFields(['name', 'adminIds', 'id']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 200 &&
+             data.adminIds is list &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidQuizCooldown(data) {
+      return hasOnlyAllowedFields(['userId', 'challengeId', 'cooldownUntil', 'id']) &&
+             data.userId is string && data.userId.size() < 100 &&
+             data.challengeId is string && data.challengeId.size() < 100 &&
+             data.cooldownUntil is timestamp &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidCourse(data) {
+      return hasOnlyAllowedFields(['title', 'description', 'lessonIds', 'challengeIds', 'pointsReward', 'thumbnail', 'createdAt', 'updatedAt', 'id']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() < 2000 &&
+             data.lessonIds is list && data.lessonIds.size() < 100 &&
+             data.challengeIds is list && data.challengeIds.size() < 50 &&
+             (!('pointsReward' in data) || data.pointsReward is number) &&
+             (!('thumbnail' in data) || (data.thumbnail is string && data.thumbnail.size() < 500)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidCertificate(data) {
+      return hasOnlyAllowedFields(['userId', 'courseId', 'issueDate', 'grade', 'userName', 'courseTitle', 'id']) &&
+             data.userId is string && data.userId.size() < 100 &&
+             data.courseId is string && data.courseId.size() < 100 &&
+             data.issueDate is timestamp &&
+             data.grade is number && data.grade >= 0 && data.grade <= 100 &&
+             (!('userName' in data) || (data.userName is string && data.userName.size() < 100)) &&
+             (!('courseTitle' in data) || (data.courseTitle is string && data.courseTitle.size() < 200)) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{email} {
+      // Allow any authenticated user to read users (needed for Ranking and Teams)
+      // WARNING: This exposes user emails (doc IDs) and other fields to all logged-in users.
+      // Recommendation: Split into users_public and users_private collections for better PII protection.
+      allow read: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && isOwner(email) && isValidUser(request.resource.data) && 
+                    request.resource.data.role == 'student' && 
+                    (!('admin' in request.resource.data) || request.resource.data.admin == false) &&
+                    (!('points' in request.resource.data) || request.resource.data.points == 0);
+      allow update: if isAuthenticated() && (
+        (isOwner(email) && isValidUser(request.resource.data) && 
+         areImmutableFieldsUnchanged(['role', 'admin', 'email', 'uid'])) || 
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /lessons/{lessonId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidLesson(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /challenges/{challengeId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidChallenge(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /submissions/{submissionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && 
+                    isValidSubmission(request.resource.data) && 
+                    (request.resource.data.status == 'pending' || request.resource.data.status == 'graded');
+      allow update: if isAuthenticated() && (
+        (resource.data.userId == request.auth.uid && isValidSubmission(request.resource.data) && 
+         request.resource.data.status == resource.data.status &&
+         (!('grade' in request.resource.data) || request.resource.data.grade == resource.data.grade)) || 
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /teams/{teamId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidTeam(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isAdmin()) && isValidOrder(request.resource.data);
+      allow update: if isAuthenticated() && (
+        (isAdmin() && isValidOrder(request.resource.data)) || 
+        (resource.data.userId == request.auth.uid && 
+         isValidOrder(request.resource.data) &&
+         (
+           // Allow user to cancel ONLY if it's currently 'Aguardando Pagamento'
+           (resource.data.status == 'Aguardando Pagamento' && request.resource.data.status == 'Cancelado') ||
+           // Or allow other status updates that don't change the status (e.g. adding metadata)
+           (request.resource.data.status == resource.data.status)
+         ) &&
+         areImmutableFieldsUnchanged(['userId', 'userEmail', 'productIds', 'total', 'createdAt', 'paymentId', 'deliveryMethod', 'schoolId', 'schoolName', 'deliveryAddress', 'deliveryFee']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /notes/{noteId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidNote(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /folders/{folderId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidFolder(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /schools/{schoolId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /quizCooldowns/{cooldownId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidQuizCooldown(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /comments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.token.email && isValidComment(request.resource.data);
+      allow update: if isAuthenticated() && isValidComment(request.resource.data) && 
+                    (resource.data.userId == request.auth.token.email || isAdmin() || 
+                     (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])));
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.token.email || isAdmin());
+    }
+
+    match /courses/{courseId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && isValidCourse(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /certificates/{certId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (request.resource.data.userId == request.auth.token.email || isAdmin()) && isValidCertificate(request.resource.data);
+      allow update: if isAdmin() && isValidCertificate(request.resource.data);
+      allow delete: if isAdmin();
+    }
+    
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.token.email || request.auth.token.email == "jvssilv4@gmail.com" || isAdmin());
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.token.email && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.token.email;
+      allow create: if isAuthenticated(); // Allow users to notify admins about orders
+    }
+    
+    match /metadata/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
