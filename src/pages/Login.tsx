@@ -1,5 +1,5 @@
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Zap } from 'lucide-react';
@@ -38,12 +38,16 @@ export default function Login() {
           uid: user.uid,
           name: user.displayName || 'Usuário',
           email: user.email,
+          photoURL: user.photoURL || null,
           role: isAdmin ? 'admin' : 'external',
           admin: isAdmin,
           points: 0,
           certificates: [],
+          completedLessons: [],
+          medals: [],
           teamId: null,
           room: null,
+          createdAt: serverTimestamp()
         };
         try {
           await setDoc(userDocRef, userData);

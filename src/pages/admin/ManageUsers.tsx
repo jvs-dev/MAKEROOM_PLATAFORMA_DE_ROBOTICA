@@ -80,7 +80,6 @@ export default function ManageUsers() {
     const userRef = doc(db, 'users', user.email);
     try {
       const updateData: any = { ...user };
-      delete updateData.email; // Don't save email in fields if it's the ID
       
       if (newRole) {
         updateData.role = newRole;

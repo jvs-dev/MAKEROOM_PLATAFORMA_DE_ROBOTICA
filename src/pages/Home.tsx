@@ -82,12 +82,18 @@ export default function Home() {
             // Create user document if it doesn't exist
             const isMainAdmin = auth.currentUser.email === 'jvssilv4@gmail.com';
             data = { 
+              uid: auth.currentUser.uid,
               name: auth.currentUser.displayName || 'Maker',
               email: auth.currentUser.email,
+              photoURL: auth.currentUser.photoURL || null,
               admin: isMainAdmin,
-              role: isMainAdmin ? 'admin' : 'student',
+              role: isMainAdmin ? 'admin' : 'external',
               completedLessons: [],
+              medals: [],
+              certificates: [],
               points: 0,
+              teamId: null,
+              room: null,
               createdAt: serverTimestamp()
             };
             await setDoc(doc(db, 'users', auth.currentUser.email), data);
