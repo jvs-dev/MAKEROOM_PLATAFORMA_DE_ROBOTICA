@@ -80,7 +80,6 @@ export default function ManageUsers() {
     const userRef = doc(db, 'users', user.email);
     try {
       const updateData: any = { ...user };
-      delete updateData.email; // Don't save email in fields if it's the ID
       
       if (newRole) {
         updateData.role = newRole;
@@ -99,6 +98,11 @@ export default function ManageUsers() {
           updateData.room = null;
           updateData.schoolId = null;
         }
+      }
+
+      // Ensure points is a number
+      if (updateData.points !== undefined) {
+        updateData.points = Number(updateData.points);
       }
 
       await updateDoc(userRef, updateData);
@@ -163,8 +167,8 @@ export default function ManageUsers() {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         (user.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -358,24 +362,24 @@ export default function ManageUsers() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg overflow-hidden"
+              className="bg-white rounded-[2rem] shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden"
             >
-              <div className="p-8">
-                <div className="flex items-center justify-between mb-8">
-                  <h2 className="text-2xl font-bold text-slate-900">
-                    {isPromoting ? 'Promover a Aluno' : 'Editar Usuário'}
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setEditingUser(null);
-                      setIsPromoting(false);
-                    }}
-                    className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
-                  >
-                    <X className="w-6 h-6 text-slate-400" />
-                  </button>
-                </div>
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between shrink-0">
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {isPromoting ? 'Promover a Aluno' : 'Editar Usuário'}
+                </h2>
+                <button
+                  onClick={() => {
+                    setEditingUser(null);
+                    setIsPromoting(false);
+                  }}
+                  className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
 
+              <div className="p-8 overflow-y-auto custom-scrollbar">
                 <div className="space-y-6">
                   <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                     <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center overflow-hidden shadow-sm">
@@ -388,6 +392,27 @@ export default function ManageUsers() {
                     <div>
                       <p className="font-bold text-slate-900">{editingUser.name}</p>
                       <p className="text-sm text-slate-500">{editingUser.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700 ml-1">Nome Completo</label>
+                      <input
+                        type="text"
+                        value={editingUser.name}
+                        onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-brand-500 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-bold text-slate-700 ml-1">Pontos</label>
+                      <input
+                        type="number"
+                        value={editingUser.points || 0}
+                        onChange={(e) => setEditingUser({ ...editingUser, points: Number(e.target.value) })}
+                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-brand-500 transition-all"
+                      />
                     </div>
                   </div>
 
@@ -418,7 +443,7 @@ export default function ManageUsers() {
                         {(['admin', 'student', 'external'] as const).map((role) => (
                           <button
                             key={role}
-                            onClick={() => handleUpdateUser(editingUser, role)}
+                            onClick={() => setEditingUser({ ...editingUser, role })}
                             className={`py-3 rounded-2xl text-sm font-bold transition-all ${
                               editingUser.role === role
                                 ? 'bg-brand-500 text-white shadow-lg shadow-brand-100'
@@ -481,7 +506,7 @@ export default function ManageUsers() {
                     </button>
                     <button
                       onClick={() => handleUpdateUser(editingUser, isPromoting ? 'student' : undefined)}
-                      className="flex-1 py-4 rounded-2xl bg-slate-900 text-white font-bold hover:bg-slate-800 transition-colors shadow-lg shadow-slate-200"
+                      className="flex-1 py-4 rounded-2xl bg-brand-500 text-white font-bold hover:bg-brand-600 transition-colors shadow-lg shadow-brand-100"
                     >
                       {isPromoting ? 'Promover Agora' : 'Salvar Alterações'}
                     </button>

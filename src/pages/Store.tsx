@@ -109,7 +109,9 @@ export default function Store() {
     cardholderName: '',
     identificationNumber: '',
     installments: 1,
-    cardType: 'credit' as 'credit' | 'debit'
+    cardType: 'credit' as 'credit' | 'debit',
+    phone: '',
+    zipCode: ''
   });
   const [isInitialLoadDone, setIsInitialLoadDone] = useState(false);
   const [showCart, setShowCart] = useState(false);
@@ -337,7 +339,9 @@ export default function Store() {
             cardholderName: card.cardholderName || '',
             identificationNumber: card.identificationNumber || '',
             cardType: card.cardType || 'credit',
-            installments: card.installments || 1
+            installments: card.installments || 1,
+            phone: card.phone || '',
+            zipCode: card.zipCode || ''
           }));
         }
       }
@@ -356,14 +360,16 @@ export default function Store() {
         cardholderName: cardData.cardholderName,
         identificationNumber: cardData.identificationNumber,
         cardType: cardData.cardType,
-        installments: cardData.installments
+        installments: cardData.installments,
+        phone: cardData.phone,
+        zipCode: cardData.zipCode
       }));
     } else {
       localStorage.removeItem('makerroom_customer_info');
       localStorage.removeItem('makerroom_delivery_address');
       localStorage.removeItem('makerroom_card_data');
     }
-  }, [saveData, customerInfo, deliveryAddress, cardData.cardholderName, cardData.identificationNumber, cardData.cardType, cardData.installments, isInitialLoadDone]);
+  }, [saveData, customerInfo, deliveryAddress, cardData.cardholderName, cardData.identificationNumber, cardData.cardType, cardData.installments, cardData.phone, cardData.zipCode, isInitialLoadDone]);
 
   useEffect(() => {
     let result = products;
@@ -637,6 +643,21 @@ export default function Store() {
     return `${v.substring(0, 3)}.${v.substring(3, 6)}.${v.substring(6, 9)}-${v.substring(9)}`;
   };
 
+  const formatPhone = (value: string) => {
+    const v = value.replace(/\D/g, '').substring(0, 11);
+    if (v.length === 0) return '';
+    if (v.length <= 2) return `(${v}`;
+    if (v.length <= 6) return `(${v.substring(0, 2)}) ${v.substring(2)}`;
+    if (v.length <= 10) return `(${v.substring(0, 2)}) ${v.substring(2, 6)}-${v.substring(6)}`;
+    return `(${v.substring(0, 2)}) ${v.substring(2, 7)}-${v.substring(7)}`;
+  };
+
+  const formatCEP = (value: string) => {
+    const v = value.replace(/\D/g, '').substring(0, 8);
+    if (v.length <= 5) return v;
+    return `${v.substring(0, 5)}-${v.substring(5)}`;
+  };
+
   const handleCheckout = async () => {
     if (totalItems === 0 || !auth.currentUser) return;
     setCheckoutError(null);
@@ -670,7 +691,9 @@ export default function Store() {
         localStorage.setItem('makerroom_delivery_address', JSON.stringify(deliveryAddress));
         localStorage.setItem('makerroom_card_data', JSON.stringify({
           cardholderName: cardData.cardholderName,
-          identificationNumber: cardData.identificationNumber
+          identificationNumber: cardData.identificationNumber,
+          phone: cardData.phone,
+          zipCode: cardData.zipCode
         }));
       } else {
         localStorage.removeItem('makerroom_customer_info');
@@ -750,6 +773,14 @@ export default function Store() {
           throw new Error('O sistema de pagamento com cartão não está configurado. Verifique a chave pública do Mercado Pago.');
         }
 
+        if (!cardData.phone || cardData.phone.replace(/\D/g, '').length < 10) {
+          throw new Error('Por favor, informe um telefone válido do titular do cartão.');
+        }
+
+        if (!cardData.zipCode || cardData.zipCode.replace(/\D/g, '').length !== 8) {
+          throw new Error('Por favor, informe um CEP de cobrança válido.');
+        }
+
         let token = '';
         let payment_method_id = 'visa'; // Default
         let issuer_id = undefined;
@@ -806,6 +837,10 @@ export default function Store() {
         
         console.log('Processing card payment at:', processPaymentUrl);
         
+        const phoneClean = cardData.phone.replace(/\D/g, '');
+        const areaCode = phoneClean.substring(0, 2);
+        const phoneNumber = phoneClean.substring(2);
+
         const paymentPayload = {
           token,
           transaction_amount: Number(totalPrice.toFixed(2)),
@@ -820,7 +855,18 @@ export default function Store() {
             identification: {
               type: 'CPF',
               number: cardData.identificationNumber.replace(/\D/g, '')
-            }
+            },
+            ...(phoneClean.length >= 10 && {
+              phone: {
+                area_code: areaCode,
+                number: phoneNumber
+              }
+            }),
+            ...(cardData.zipCode && {
+              address: {
+                zip_code: cardData.zipCode.replace(/\D/g, '')
+              }
+            })
           }
         };
 
@@ -857,6 +903,13 @@ export default function Store() {
           setCart({});
           alert('Pagamento com cartão aprovado com sucesso! 🎉');
         } else if (paymentData.status === 'in_process' || paymentData.status === 'pending') {
+          // Verifica se exige autenticação 3DS (comum em cartão de débito)
+          if (paymentData.status_detail === 'pending_challenge' && paymentData.transaction_details?.external_resource_url) {
+            alert('Você será redirecionado para o aplicativo do seu banco para autorizar o pagamento com débito.');
+            window.location.href = paymentData.transaction_details.external_resource_url;
+            return; // Para a execução aqui, pois a página será recarregada
+          }
+
           setPaymentStatus('pending');
           setShowCheckoutForm(false);
           await saveOrderToFirestore(paymentData.id, 'Em Análise');
@@ -1085,7 +1138,7 @@ export default function Store() {
 
               <div className="flex items-center">
                 {cart[product.id] ? (
-                  <div className="flex items-center gap-1 bg-slate-900 text-white p-0.5 rounded-lg shadow-md">
+                  <div className="flex items-center gap-1 bg-brand-500 text-white p-0.5 rounded-lg shadow-md">
                     <button 
                       onClick={(e) => { e.stopPropagation(); removeFromCart(product.id); }}
                       className="w-6 h-6 rounded flex items-center justify-center hover:bg-white/10 transition-colors"
@@ -1124,7 +1177,7 @@ export default function Store() {
               
               <div className="flex items-center">
                 {cart[product.id] ? (
-                  <div className="flex items-center gap-1 bg-slate-900 text-white p-1 rounded-xl shadow-lg">
+                  <div className="flex items-center gap-1 bg-brand-500 text-white p-1 rounded-xl shadow-lg">
                     <button 
                       onClick={(e) => { e.stopPropagation(); removeFromCart(product.id); }}
                       className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-white/10 transition-colors"
@@ -1288,13 +1341,13 @@ export default function Store() {
           </button>
           <button 
             onClick={() => setShowCart(true)}
-            className="flex-[1.5] md:flex-none flex items-center justify-between gap-3 md:gap-4 bg-slate-900 text-white px-4 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl shadow-lg hover:bg-slate-800 transition-all active:scale-95"
+            className="flex-[1.5] md:flex-none flex items-center justify-between gap-3 md:gap-4 bg-brand-500 text-white px-4 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl shadow-lg hover:bg-brand-600 transition-all active:scale-95"
           >
             <div className="flex items-center gap-2">
               <div className="relative">
                 <ShoppingCart className="w-4 h-4 md:w-5 h-5" />
                 {totalItems > 0 && (
-                  <span className="absolute -top-2 -right-2 w-4 h-4 md:w-5 md:h-5 bg-brand-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-slate-900">
+                  <span className="absolute -top-2 -right-2 w-4 h-4 md:w-5 md:h-5 bg-white text-brand-600 text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-brand-500">
                     {totalItems}
                   </span>
                 )}
@@ -1429,7 +1482,7 @@ export default function Store() {
                     <p className="text-slate-400 text-sm leading-relaxed mb-8">Parece que você ainda não escolheu seus componentes. Que tal começar agora?</p>
                     <button 
                       onClick={() => setShowCart(false)}
-                      className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-200"
+                      className="w-full bg-brand-500 text-white font-bold py-4 rounded-2xl hover:bg-brand-600 transition-all shadow-xl shadow-brand-100"
                     >
                       Explorar Loja
                     </button>
@@ -1460,7 +1513,7 @@ export default function Store() {
                 <button 
                   disabled={totalItems === 0 || isProcessing}
                   onClick={handleCheckout}
-                  className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2 group text-sm"
+                  className="w-full bg-brand-500 hover:bg-brand-600 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-brand-100 flex items-center justify-center gap-2 group text-sm"
                 >
                   {isProcessing ? (
                     <Loader2 className="animate-spin h-5 w-5" />
@@ -1534,7 +1587,7 @@ export default function Store() {
                         <input 
                           type="text"
                           value={customerInfo.phone}
-                          onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})}
+                          onChange={(e) => setCustomerInfo({...customerInfo, phone: formatPhone(e.target.value)})}
                           className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent focus:border-brand-500/20 rounded-2xl text-sm focus:outline-none transition-all placeholder:text-slate-300"
                           placeholder="(00) 00000-0000"
                         />
@@ -1636,7 +1689,7 @@ export default function Store() {
                           <input 
                             type="text"
                             value={deliveryAddress.cep}
-                            onChange={(e) => setDeliveryAddress(prev => ({ ...prev, cep: e.target.value }))}
+                            onChange={(e) => setDeliveryAddress(prev => ({ ...prev, cep: formatCEP(e.target.value) }))}
                             onBlur={calculateDeliveryFee}
                             className="w-full px-4 py-3 bg-slate-50 border-2 border-transparent focus:border-brand-500/20 rounded-xl text-sm focus:outline-none transition-all"
                             placeholder="00000-000"
@@ -1790,6 +1843,29 @@ export default function Store() {
                             className="w-full px-4 py-3 bg-white border-2 border-transparent focus:border-brand-500/20 rounded-xl text-sm focus:outline-none transition-all"
                             placeholder="000.000.000-00"
                           />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Telefone do Titular</label>
+                            <input 
+                              type="text"
+                              value={cardData.phone}
+                              onChange={(e) => setCardData({...cardData, phone: formatPhone(e.target.value)})}
+                              className="w-full px-4 py-3 bg-white border-2 border-transparent focus:border-brand-500/20 rounded-xl text-sm focus:outline-none transition-all"
+                              placeholder="(00) 00000-0000"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">CEP de Cobrança</label>
+                            <input 
+                              type="text"
+                              value={cardData.zipCode}
+                              onChange={(e) => setCardData({...cardData, zipCode: formatCEP(e.target.value)})}
+                              className="w-full px-4 py-3 bg-white border-2 border-transparent focus:border-brand-500/20 rounded-xl text-sm focus:outline-none transition-all"
+                              placeholder="00000-000"
+                            />
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
@@ -1979,7 +2055,7 @@ export default function Store() {
                         <div className="flex flex-col sm:flex-row gap-3">
                           <button 
                             onClick={() => generateReceipt(order)}
-                            className="flex-1 bg-slate-900 text-white font-bold py-3 rounded-2xl hover:bg-slate-800 transition-all flex items-center justify-center gap-2 text-xs shadow-lg shadow-slate-200"
+                            className="flex-1 bg-brand-500 text-white font-bold py-3 rounded-2xl hover:bg-brand-600 transition-all flex items-center justify-center gap-2 text-xs shadow-lg shadow-brand-100"
                           >
                             <ShoppingBag className="w-4 h-4" />
                             Baixar Recibo

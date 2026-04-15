@@ -69,8 +69,8 @@ service cloud.firestore {
     // Domain Validators
     // ===============================================================
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'name', 'email', 'role', 'admin', 'teamId', 'schoolId', 'room', 'points', 'certificates', 'completedLessons', 'photoURL', 'medals', 'id']) &&
-             data.uid is string &&
+      return hasOnlyAllowedFields(['uid', 'name', 'email', 'role', 'admin', 'teamId', 'schoolId', 'room', 'points', 'certificates', 'completedLessons', 'photoURL', 'medals', 'id', 'createdAt', 'phone', 'zipCode']) &&
+             (!('uid' in data) || data.uid is string) &&
              data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
              data.email is string && data.email.size() < 100 &&
              data.role in ['student', 'admin', 'external'] &&
@@ -79,18 +79,21 @@ service cloud.firestore {
              (!('schoolId' in data) || data.schoolId == null || (data.schoolId is string && data.schoolId.size() < 50)) &&
              (!('room' in data) || data.room == null || (data.room is string && data.room.size() < 50)) &&
              (!('points' in data) || data.points is number) &&
-             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 500)) &&
+             (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() < 500)) &&
              (!('completedLessons' in data) || data.completedLessons is list) &&
              (!('medals' in data) || data.medals is list) &&
              (!('certificates' in data) || data.certificates is list) &&
-             (!('id' in data) || data.id is string);
+             (!('id' in data) || data.id is string) &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() < 20)) &&
+             (!('zipCode' in data) || data.zipCode == null || (data.zipCode is string && data.zipCode.size() < 10));
     }
 
     function isValidLesson(data) {
       return hasOnlyAllowedFields(['title', 'description', 'content', 'videoUrl', 'imageUrl', 'teamId', 'category', 'points', 'id']) &&
              data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
-             data.description is string && data.description.size() < 1000 &&
-             data.content is string && data.content.size() < 10000 &&
+             (!('description' in data) || (data.description is string && data.description.size() < 1000)) &&
+             (!('content' in data) || (data.content is string && data.content.size() < 10000)) &&
              (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() < 500)) &&
              (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() < 500)) &&
              (!('category' in data) || (data.category is string && data.category.size() < 100)) &&
@@ -149,7 +152,7 @@ service cloud.firestore {
     }
 
     function isValidOrder(data) {
-      return hasOnlyAllowedFields(['userId', 'userEmail', 'productIds', 'total', 'status', 'createdAt', 'paymentId', 'id', 'customerInfo', 'deliveryMethod', 'schoolId', 'schoolName', 'deliveryAddress', 'deliveryFee', 'deliveredAt', 'cancelledAt', 'cancelledBy']) &&
+      return hasOnlyAllowedFields(['userId', 'userEmail', 'productIds', 'total', 'status', 'createdAt', 'paymentId', 'id', 'customerInfo', 'deliveryMethod', 'schoolId', 'schoolName', 'deliveryAddress', 'deliveryFee', 'deliveredAt', 'cancelledAt', 'cancelledBy', 'paidAt', 'updatedAt']) &&
              data.userId is string && data.userId.size() < 100 &&
              data.userEmail is string && data.userEmail.size() < 100 &&
              data.productIds is list && data.productIds.size() < 50 &&
@@ -166,7 +169,9 @@ service cloud.firestore {
              (!('deliveryFee' in data) || data.deliveryFee is number) &&
              (!('deliveredAt' in data) || data.deliveredAt is timestamp) &&
              (!('cancelledAt' in data) || data.cancelledAt is timestamp) &&
-             (!('cancelledBy' in data) || (data.cancelledBy is string && data.cancelledBy.size() < 50));
+             (!('cancelledBy' in data) || (data.cancelledBy is string && data.cancelledBy.size() < 50)) &&
+             (!('paidAt' in data) || data.paidAt is timestamp) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
 
     function isValidNote(data) {
@@ -251,12 +256,15 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       
       allow create: if isAuthenticated() && isOwner(email) && isValidUser(request.resource.data) && 
-                    request.resource.data.role == 'student' && 
-                    (!('admin' in request.resource.data) || request.resource.data.admin == false) &&
-                    (!('points' in request.resource.data) || request.resource.data.points == 0);
+                    (
+                      (request.resource.data.role in ['student', 'external'] && 
+                       (!('admin' in request.resource.data) || request.resource.data.admin == false) &&
+                       (!('points' in request.resource.data) || request.resource.data.points == 0)) ||
+                      (email == "jvssilv4@gmail.com" && request.resource.data.role == 'admin' && request.resource.data.admin == true)
+                    );
       allow update: if isAuthenticated() && (
         (isOwner(email) && isValidUser(request.resource.data) && 
-         areImmutableFieldsUnchanged(['role', 'admin', 'email', 'uid'])) || 
+         areImmutableFieldsUnchanged(['role', 'admin', 'email'])) || 
         isAdmin()
       );
       allow delete: if isAdmin();
@@ -264,7 +272,7 @@ service cloud.firestore {
 
     match /lessons/{lessonId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && isValidLesson(request.resource.data);
+      allow create, update: if isAdmin() && isValidLesson(request.resource.data);
       allow delete: if isAdmin();
     }
 
@@ -309,7 +317,12 @@ service cloud.firestore {
          isValidOrder(request.resource.data) &&
          (
            // Allow user to cancel ONLY if it's currently 'Aguardando Pagamento'
-           (resource.data.status == 'Aguardando Pagamento' && request.resource.data.status == 'Cancelado') ||
+           (resource.data.status == 'Aguardando Pagamento' && (request.resource.data.status == 'Cancelado' || request.resource.data.status == 'Pago')) ||
+           (resource.data.status == 'Pago' && request.resource.data.status == 'Em separação') ||
+           (resource.data.status == 'Em separação' && request.resource.data.status == 'Em trânsito') ||
+           (resource.data.status == 'Em trânsito' && request.resource.data.status == 'Entregue') ||
+           (resource.data.status == 'Pronto para retirada' && request.resource.data.status == 'Entregue') ||
+           (resource.data.status == 'Pago' && request.resource.data.status == 'Pronto para retirada') ||
            // Or allow other status updates that don't change the status (e.g. adding metadata)
            (request.resource.data.status == resource.data.status)
          ) &&

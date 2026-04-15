@@ -333,7 +333,7 @@ export default function ManageOrders() {
                   <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                     <MapPin className="w-3 h-3" /> Local de Entrega / Retirada
                   </h3>
-                  <div className="bg-slate-900 p-6 rounded-[2rem] text-white relative overflow-hidden">
+                  <div className="bg-brand-950 p-6 rounded-[2rem] text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-10">
                       <MapPin className="w-24 h-24" />
                     </div>

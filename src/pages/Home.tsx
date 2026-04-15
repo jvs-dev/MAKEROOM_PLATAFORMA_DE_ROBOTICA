@@ -76,18 +76,30 @@ export default function Home() {
           let data = null;
           if (userDoc.exists()) {
             data = userDoc.data();
+            // Ensure main admin always has admin privileges in the UI and DB
+            if (auth.currentUser.email === 'jvssilv4@gmail.com' && (!data.admin || data.role !== 'admin')) {
+              data.admin = true;
+              data.role = 'admin';
+              await updateDoc(doc(db, 'users', auth.currentUser.email), { admin: true, role: 'admin' });
+            }
             setUserData(data);
             setUserTeamId(data.teamId);
           } else {
             // Create user document if it doesn't exist
             const isMainAdmin = auth.currentUser.email === 'jvssilv4@gmail.com';
             data = { 
+              uid: auth.currentUser.uid,
               name: auth.currentUser.displayName || 'Maker',
               email: auth.currentUser.email,
+              photoURL: auth.currentUser.photoURL || null,
               admin: isMainAdmin,
-              role: isMainAdmin ? 'admin' : 'student',
+              role: isMainAdmin ? 'admin' : 'external',
               completedLessons: [],
+              medals: [],
+              certificates: [],
               points: 0,
+              teamId: null,
+              room: null,
               createdAt: serverTimestamp()
             };
             await setDoc(doc(db, 'users', auth.currentUser.email), data);
@@ -198,9 +210,9 @@ export default function Home() {
   };
 
   const handleDeleteComment = async (commentId: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir este comentário?')) return;
     try {
       await deleteDoc(doc(db, 'comments', commentId));
+      setToast({ message: 'Comentário excluído com sucesso!', type: 'success' });
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, 'comments');
     }
@@ -407,7 +419,7 @@ export default function Home() {
 
             <Link 
               to={`/courses/${lastCourse.id}`}
-              className="w-full md:w-auto bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
+              className="w-full md:w-auto bg-brand-500 text-white px-6 py-3 rounded-xl font-bold text-sm hover:bg-brand-600 transition-all flex items-center justify-center gap-2 shadow-sm whitespace-nowrap"
             >
               Retomar Trilha <ChevronRight className="w-4 h-4" />
             </Link>
@@ -566,7 +578,7 @@ export default function Home() {
                   </div>
                   <button 
                     onClick={() => setSelectedLesson(lesson)}
-                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors flex items-center gap-2"
+                    className="bg-brand-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-brand-600 transition-colors flex items-center gap-2"
                   >
                     Começar <ChevronRight className="w-4 h-4" />
                   </button>
@@ -658,7 +670,7 @@ export default function Home() {
                 <div className="xl:col-span-2 space-y-6 md:space-y-8">
                   {/* Video Player */}
                   {selectedLesson.videoUrl && (
-                    <div className="aspect-video bg-slate-900 rounded-none md:rounded-3xl overflow-hidden shadow-2xl md:border md:border-slate-800">
+                    <div className="aspect-video bg-brand-950 rounded-none md:rounded-3xl overflow-hidden shadow-2xl md:border md:border-slate-800">
                       {selectedLesson.videoUrl.includes('youtube.com') || selectedLesson.videoUrl.includes('youtu.be') ? (
                         <iframe 
                           src={`https://www.youtube.com/embed/${selectedLesson.videoUrl.split('v=')[1] || selectedLesson.videoUrl.split('/').pop()}`}
@@ -721,7 +733,7 @@ export default function Home() {
                                 <div className="flex items-center justify-between gap-2">
                                   <span className="font-bold text-slate-900 text-sm truncate">{comment.userName}</span>
                                   <div className="flex items-center gap-2 shrink-0">
-                                    {(userData?.admin || comment.userId === auth.currentUser?.email) && (
+                                    {(userData?.admin || auth.currentUser?.email === 'jvssilv4@gmail.com' || comment.userId === auth.currentUser?.email) && (
                                       <button 
                                         onClick={() => handleDeleteComment(comment.id)}
                                         className="p-1 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
@@ -778,7 +790,7 @@ export default function Home() {
                   <button 
                     onClick={() => handleCompleteLesson(selectedLesson.id)}
                     disabled={isCompletingLesson || userData?.completedLessons?.includes(selectedLesson.id)}
-                    className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg mb-8"
+                    className="w-full bg-brand-500 text-white font-bold py-4 rounded-2xl hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg mb-8"
                   >
                     {isCompletingLesson ? 'Processando...' : userData?.completedLessons?.includes(selectedLesson.id) ? 'Aula Concluída' : 'Concluir Aula'}
                   </button>

@@ -74,9 +74,11 @@ export default function ProjectNotes() {
 
   const handleDeleteFolder = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm('Tem certeza que deseja excluir esta pasta? As notas dentro dela ficarão sem pasta.')) {
+    try {
       await deleteDoc(doc(db, 'folders', id));
       fetchData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -130,9 +132,11 @@ export default function ProjectNotes() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta nota?')) {
+    try {
       await deleteDoc(doc(db, 'notes', id));
       fetchData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
