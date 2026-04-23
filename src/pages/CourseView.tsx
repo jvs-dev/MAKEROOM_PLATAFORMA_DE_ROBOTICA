@@ -295,10 +295,10 @@ export default function CourseView() {
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-emerald-500 text-white p-6 rounded-[2rem] shadow-lg shadow-emerald-100 flex items-center justify-between gap-6"
+              className="bg-emerald-500 text-white p-5 md:p-6 rounded-[2rem] shadow-lg shadow-emerald-100 flex flex-col md:flex-row md:items-center justify-between gap-6"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shrink-0">
                   <Trophy className="w-7 h-7 text-white" />
                 </div>
                 <div>
@@ -308,66 +308,66 @@ export default function CourseView() {
               </div>
               <button 
                 onClick={handlePrintCertificate}
-                className="bg-white text-emerald-600 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-md"
+                className="bg-white text-emerald-600 px-6 py-4 md:py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-50 transition-all shadow-md min-h-[44px]"
               >
                 Ver Certificado
               </button>
             </motion.div>
           )}
 
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+          <div className="bg-white dark:bg-zinc-900 p-5 md:p-8 rounded-3xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/10 shadow-sm transition-colors">
             <div className="flex items-center gap-3 mb-4">
-              <span className="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider">Trilha de Aprendizado</span>
+              <span className="bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider">Trilha de Aprendizado</span>
               {certificate && (
-                <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                <span className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1">
                   <CheckCircle2 className="w-3 h-3" /> Concluído
                 </span>
               )}
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-4">{course.title}</h1>
-            <p className="text-slate-600 leading-relaxed mb-8">{course.description}</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4">{course.title}</h1>
+            <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-8">{course.description}</p>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5 transition-colors">
                 <BookOpen className="w-5 h-5 text-indigo-500 mb-2" />
-                <p className="text-xs text-slate-500 font-bold uppercase">Aulas</p>
-                <p className="text-lg font-bold text-slate-900">{lessons.length}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Aulas</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white">{lessons.length}</p>
               </div>
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5 transition-colors">
                 <Zap className="w-5 h-5 text-amber-500 mb-2" />
-                <p className="text-xs text-slate-500 font-bold uppercase">Quizes</p>
-                <p className="text-lg font-bold text-slate-900">{challenges.length}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Quizes</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white">{challenges.length}</p>
               </div>
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5 transition-colors">
                 <Trophy className="w-5 h-5 text-emerald-500 mb-2" />
-                <p className="text-xs text-slate-500 font-bold uppercase">Pontos</p>
-                <p className="text-lg font-bold text-slate-900">+{course.pointsReward}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Pontos</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white">+{course.pointsReward}</p>
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-slate-900 px-4">Conteúdo do Curso</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white px-4">Conteúdo do Curso</h2>
             <div className="space-y-3">
               {lessons.map((lesson, idx) => (
                 <div 
                   key={lesson.id}
                   onClick={() => navigate('/', { state: { lessonId: lesson.id } })}
-                  className={`bg-white p-5 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer hover:shadow-md hover:border-indigo-200 ${
-                    isLessonCompleted(lesson.id) ? 'border-emerald-100 bg-emerald-50/30' : 'border-slate-100'
+                  className={`bg-white dark:bg-zinc-900 p-5 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-500/50 ${
+                    isLessonCompleted(lesson.id) ? 'border-emerald-100 dark:border-emerald-500/20 bg-emerald-50/30 dark:bg-emerald-500/10' : 'border-slate-100 dark:border-white/10'
                   }`}
                 >
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                    isLessonCompleted(lesson.id) ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'
+                    isLessonCompleted(lesson.id) ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500'
                   }`}>
                     {isLessonCompleted(lesson.id) ? <CheckCircle2 className="w-6 h-6" /> : idx + 1}
                   </div>
                   <div className="flex-1">
-                    <p className="font-bold text-slate-900">{lesson.title}</p>
-                    <p className="text-xs text-slate-500">Aula Teórica</p>
+                    <p className="font-bold text-slate-900 dark:text-white">{lesson.title}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Aula Teórica</p>
                   </div>
                   {!isLessonCompleted(lesson.id) && (
-                    <div className="text-indigo-600 font-bold text-xs hover:underline">
+                    <div className="text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:underline">
                       Assistir
                     </div>
                   )}
@@ -386,22 +386,22 @@ export default function CourseView() {
                   <div 
                     key={quiz.id}
                     onClick={() => !isDisabled && navigate('/challenges', { state: { challengeId: quiz.id } })}
-                    className={`bg-white p-5 rounded-2xl border flex items-center gap-4 transition-all ${
-                      isDisabled ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer hover:shadow-md hover:border-amber-200'
+                    className={`bg-white dark:bg-zinc-900 p-5 rounded-2xl border flex items-center gap-4 transition-all ${
+                      isDisabled ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer hover:shadow-md hover:border-amber-200 dark:hover:border-amber-500/50'
                     } ${
-                      isOnCooldown ? 'border-red-100 bg-red-50/10' : (isPassed ? 'border-amber-100 bg-amber-50/30' : 'border-slate-100')
+                      isOnCooldown ? 'border-red-100 dark:border-red-500/20 bg-red-50/10 dark:bg-red-500/10' : (isPassed ? 'border-amber-100 dark:border-amber-500/20 bg-amber-50/30 dark:bg-amber-500/10' : 'border-slate-100 dark:border-white/10')
                     }`}
                   >
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                      isOnCooldown ? 'bg-red-100 text-red-500' : (isPassed ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400')
+                      isOnCooldown ? 'bg-red-100 dark:bg-red-500/20 text-red-500' : (isPassed ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500')
                     }`}>
                       {isOnCooldown ? <Clock className="w-6 h-6" /> : (isPassed ? <CheckCircle2 className="w-6 h-6" /> : <Zap className="w-6 h-6" />)}
                     </div>
                     <div className="flex-1">
-                      <p className="font-bold text-slate-900">{quiz.title}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="font-bold text-slate-900 dark:text-white">{quiz.title}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         {isOnCooldown ? (
-                          <span className="text-red-600 font-medium">
+                          <span className="text-red-600 dark:text-red-400 font-medium">
                             Em cooldown até {cooldownUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         ) : (
@@ -410,17 +410,17 @@ export default function CourseView() {
                       </p>
                     </div>
                     {(!result || (result.grade < 100)) && !isOnCooldown && (
-                      <div className="text-indigo-600 font-bold text-xs hover:underline flex items-center gap-1">
+                      <div className="text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:underline flex items-center gap-1">
                         {result ? 'Refazer' : 'Responder'} <RefreshCcw className="w-3 h-3" />
                       </div>
                     )}
                     {isOnCooldown && (
-                      <div className="text-red-600 font-bold text-[10px] uppercase tracking-wider">
+                      <div className="text-red-600 dark:text-red-400 font-bold text-xs uppercase tracking-wider">
                         Bloqueado
                       </div>
                     )}
                     {isPerfect && (
-                      <div className="text-emerald-600 font-bold text-[10px] uppercase tracking-wider">
+                      <div className="text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
                         Concluído
                       </div>
                     )}
@@ -432,45 +432,45 @@ export default function CourseView() {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm sticky top-8">
-            <h3 className="text-lg font-bold text-slate-900 mb-6">Seu Progresso</h3>
+          <div className="bg-white dark:bg-zinc-900 p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] border border-slate-100 dark:border-white/10 shadow-sm lg:sticky lg:top-8 transition-colors">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Seu Progresso</h3>
             
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${allLessonsCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${allLessonsCompleted ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500'}`}>
                     <BookOpen className="w-4 h-4" />
                   </div>
-                  <span className="text-sm font-bold text-slate-700">Aulas</span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Aulas</span>
                 </div>
-                <span className="text-sm font-black text-slate-900">
+                <span className="text-sm font-black text-slate-900 dark:text-white">
                   {userData?.completedLessons?.filter((id: string) => course.lessonIds.includes(id)).length || 0}/{course.lessonIds.length}
                 </span>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${allQuizzesPassed ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${allQuizzesPassed ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500'}`}>
                     <Zap className="w-4 h-4" />
                   </div>
-                  <span className="text-sm font-bold text-slate-700">Quizes</span>
+                  <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Quizes</span>
                 </div>
-                <span className="text-sm font-black text-slate-900">
+                <span className="text-sm font-black text-slate-900 dark:text-white">
                   {course.challengeIds.filter(id => getQuizResult(id)?.grade && getQuizResult(id)!.grade >= 70).length}/{course.challengeIds.length}
                 </span>
               </div>
 
-              <div className="pt-6 border-t border-slate-50">
+              <div className="pt-6 border-t border-slate-50 dark:border-white/5">
                 {certificate ? (
                   <div className="space-y-4">
-                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center">
-                      <Award className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-                      <p className="text-sm font-bold text-emerald-900">Certificado Conquistado!</p>
-                      <p className="text-[10px] text-emerald-600 uppercase font-black mt-1">Média: {certificate.grade.toFixed(1)}%</p>
+                    <div className="bg-emerald-50 dark:bg-emerald-500/10 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-500/20 text-center">
+                      <Award className="w-10 h-10 text-emerald-500 dark:text-emerald-400 mx-auto mb-2" />
+                      <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">Certificado Conquistado!</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase font-black mt-1">Média: {certificate.grade.toFixed(1)}%</p>
                     </div>
                     <button 
                       onClick={handlePrintCertificate}
-                      className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100"
+                      className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 dark:shadow-none"
                     >
                       <Download className="w-5 h-5" /> Baixar Certificado
                     </button>
@@ -478,9 +478,9 @@ export default function CourseView() {
                 ) : (
                   <div className="space-y-4">
                     {!allQuizzesPassed && submissions.some(s => course.challengeIds.includes(s.challengeId) && s.grade < 70) && (
-                      <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-start gap-3">
+                      <div className="bg-red-50 dark:bg-red-500/10 p-4 rounded-2xl border border-red-100 dark:border-red-500/20 flex items-start gap-3">
                         <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-                        <p className="text-xs text-red-700 leading-relaxed">
+                        <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
                           Você não atingiu a nota mínima de 70% em alguns quizes. Refaça-os para ganhar o certificado.
                         </p>
                       </div>
@@ -489,7 +489,7 @@ export default function CourseView() {
                     <button 
                       onClick={handleClaimCertificate}
                       disabled={!canClaimCertificate || isIssuing}
-                      className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg"
+                      className="w-full bg-slate-900 dark:bg-brand-500 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 dark:hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg dark:shadow-none"
                     >
                       {isIssuing ? (
                         <Loader2 className="w-5 h-5 animate-spin" />
@@ -500,7 +500,7 @@ export default function CourseView() {
                     </button>
                     
                     {!canClaimCertificate && !certificate && (
-                      <p className="text-[10px] text-slate-400 text-center font-medium">
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center font-medium">
                         Complete todas as aulas e atinja 70% nos quizes para liberar.
                       </p>
                     )}
@@ -526,29 +526,29 @@ export default function CourseView() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-white rounded-[2.5rem] p-8 md:p-12 max-w-lg w-full relative shadow-2xl text-center"
+              className="bg-white dark:bg-zinc-900 rounded-[2.5rem] p-8 md:p-12 max-w-lg w-full relative shadow-2xl text-center border border-slate-100 dark:border-white/10"
             >
               <button 
                 onClick={() => setShowSuccessModal(false)}
-                className="absolute top-6 right-6 p-2 hover:bg-slate-50 rounded-full text-slate-400 transition-colors"
+                className="absolute top-6 right-6 p-2 hover:bg-slate-50 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
 
-              <div className="w-24 h-24 bg-indigo-100 rounded-3xl flex items-center justify-center mx-auto mb-8 relative">
-                <PartyPopper className="w-12 h-12 text-indigo-600" />
+              <div className="w-24 h-24 bg-indigo-100 dark:bg-indigo-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8 relative">
+                <PartyPopper className="w-12 h-12 text-indigo-600 dark:text-indigo-400" />
                 <motion.div 
                   animate={{ scale: [1, 1.2, 1] }}
                   transition={{ repeat: Infinity, duration: 2 }}
-                  className="absolute -top-2 -right-2 w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center text-white"
+                  className="absolute -top-2 -right-2 w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center text-white shadow-lg"
                 >
                   <Award className="w-5 h-5" />
                 </motion.div>
               </div>
 
-              <h2 className="text-3xl font-black text-slate-900 mb-4">Parabéns, {userData?.name}! 🎉</h2>
-              <p className="text-slate-600 mb-8 leading-relaxed">
-                Você concluiu com sucesso o curso <span className="font-bold text-indigo-600">{course.title}</span> e seu certificado oficial já está disponível!
+              <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-4">Parabéns, {userData?.name}! 🎉</h2>
+              <p className="text-slate-600 dark:text-slate-400 mb-8 leading-relaxed">
+                Você concluiu com sucesso o curso <span className="font-bold text-indigo-600 dark:text-indigo-400">{course.title}</span> e seu certificado oficial já está disponível!
               </p>
 
               <div className="space-y-3">
@@ -557,13 +557,13 @@ export default function CourseView() {
                     setShowSuccessModal(false);
                     handlePrintCertificate();
                   }}
-                  className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100"
+                  className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 dark:shadow-none"
                 >
                   <Download className="w-5 h-5" /> Baixar Certificado Agora
                 </button>
                 <button 
                   onClick={() => navigate('/profile')}
-                  className="w-full bg-slate-50 text-slate-600 font-bold py-4 rounded-2xl hover:bg-slate-100 transition-all"
+                  className="w-full bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-4 rounded-2xl hover:bg-slate-100 dark:hover:bg-white/10 transition-all"
                 >
                   Ver no meu Perfil
                 </button>

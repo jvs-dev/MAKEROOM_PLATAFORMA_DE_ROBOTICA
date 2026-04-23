@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, serverTimestamp, query, where, setDoc, doc, Timestamp, updateDoc, increment } from 'firebase/firestore';
+import { awardPoints } from '../services/userService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Zap, CheckCircle, Clock, ChevronRight, Send, AlertCircle, X, RefreshCcw } from 'lucide-react';
@@ -253,11 +254,8 @@ export default function Challenges() {
         createdAt: serverTimestamp(),
       });
 
-      // Update user points in their profile
-      const userRef = doc(db, 'users', auth.currentUser.email);
-      await updateDoc(userRef, {
-        points: increment(earnedPoints)
-      });
+      // Update user points and sync profile automatically via awardPoints service
+      await awardPoints(auth.currentUser.uid, auth.currentUser.email, earnedPoints);
 
       // Set cooldown if grade is less than 100%
       if (grade < 100) {
@@ -335,25 +333,25 @@ export default function Challenges() {
 
   return (
     <div className="space-y-8">
-      <header className="bg-white p-4 md:p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
+      <header className="bg-white dark:bg-zinc-900 p-4 md:p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 transition-colors">
         <div className="flex-1 text-center md:text-left">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1 md:mb-2">Desafios Maker ⚡</h1>
-          <p className="text-slate-500 text-sm md:text-base">Supere limites e ganhe pontos para subir no ranking.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1 md:mb-2">Desafios Maker ⚡</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base">Supere limites e ganhe pontos para subir no ranking.</p>
         </div>
-        <div className="bg-brand-50 p-3 md:p-4 rounded-2xl flex items-center gap-3 md:gap-4">
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-brand-500 rounded-xl flex items-center justify-center shadow-md shadow-brand-100">
+        <div className="bg-brand-50 dark:bg-brand-500/10 p-3 md:p-4 rounded-2xl flex items-center gap-3 md:gap-4 transition-colors">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-brand-500 rounded-xl flex items-center justify-center shadow-md shadow-brand-100 dark:shadow-none">
             <Zap className="text-white w-5 h-5 md:w-6 md:h-6" />
           </div>
           <div>
-            <p className="text-[10px] text-brand-600 font-bold uppercase tracking-wider">Concluídos</p>
-            <p className="text-slate-900 font-bold text-sm md:text-base">{Object.keys(submissions).length} / {challenges.length} Desafios</p>
+            <p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">Concluídos</p>
+            <p className="text-slate-900 dark:text-white font-bold text-sm md:text-base">{Object.keys(submissions).length} / {challenges.length} Desafios</p>
           </div>
         </div>
       </header>
 
       {availableChallenges.length > 0 && (
         <section className="space-y-6">
-          <h2 className="text-xl font-bold text-slate-900 px-2">Desafios Disponíveis</h2>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white px-2">Desafios Disponíveis</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {availableChallenges.map((challenge) => {
               const cooldown = cooldowns[challenge.id];
@@ -367,40 +365,40 @@ export default function Challenges() {
                 : 0;
 
               return (
-                <div key={challenge.id} className={`bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-md transition-all duration-200 flex flex-col ${isOnCooldown ? 'opacity-75' : ''}`}>
+                <div key={challenge.id} className={`bg-white dark:bg-zinc-900 p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 hover:shadow-md transition-all duration-200 flex flex-col ${isOnCooldown ? 'opacity-75' : ''}`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex gap-2">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                        challenge.type === 'quiz' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${
+                        challenge.type === 'quiz' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400'
                       }`}>
                         {challenge.type === 'quiz' ? 'Quiz' : 'Atividade'}
                       </span>
                       {isOnCooldown && (
-                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-red-50 text-red-600 flex items-center gap-1">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center gap-1">
                           <Clock className="w-3 h-3" /> Bloqueado
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 text-brand-600 font-bold text-sm">
+                    <div className="flex items-center gap-1 text-brand-600 dark:text-brand-400 font-bold text-sm">
                       <Zap className="w-4 h-4 fill-brand-500" />
                       {challenge.points} pts
                     </div>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">{challenge.title}</h3>
-                  <p className="text-slate-500 text-sm mb-6 line-clamp-2">{challenge.description}</p>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{challenge.title}</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 line-clamp-2">{challenge.description}</p>
                   
                   {isOnCooldown && (
-                    <div className="mb-4 p-3 bg-red-50 rounded-xl border border-red-100">
-                      <p className="text-xs text-red-600 font-medium flex items-center gap-2">
+                    <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-100 dark:border-red-500/20">
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
                         Tente novamente em {remainingMinutes} min
                       </p>
                     </div>
                   )}
 
-                  <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-400 text-xs">
+                  <div className="mt-auto pt-6 border-t border-slate-50 dark:border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-xs">
                       <Clock className="w-4 h-4" />
                       <span>{isOnCooldown ? 'Aguarde o cooldown' : 'Disponível'}</span>
                     </div>
@@ -408,10 +406,10 @@ export default function Challenges() {
                     <button 
                       onClick={() => challenge.type === 'quiz' ? startQuiz(challenge) : setSelectedChallenge(challenge)}
                       disabled={isOnCooldown}
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 ${
+                      className={`px-4 py-3 md:py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 min-h-[44px] ${
                         isOnCooldown 
-                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                          : 'bg-slate-900 text-white hover:bg-slate-800'
+                          ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 cursor-not-allowed' 
+                          : 'bg-slate-900 dark:bg-brand-500 text-white hover:bg-slate-800 dark:hover:bg-brand-600'
                       }`}
                     >
                       {isOnCooldown ? 'Bloqueado' : 'Participar'} <ChevronRight className="w-4 h-4" />
@@ -426,7 +424,7 @@ export default function Challenges() {
 
       {completedChallenges.length > 0 && (
         <section className="space-y-6">
-          <h2 className="text-xl font-bold text-slate-900 px-2">Desafios Concluídos 🎉</h2>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white px-2">Desafios Concluídos 🎉</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {completedChallenges.map((challenge) => {
               const submission = submissions[challenge.id];
@@ -446,47 +444,47 @@ export default function Challenges() {
 
               return (
                 <div key={challenge.id} className={`p-4 md:p-6 rounded-3xl shadow-sm border transition-all duration-200 flex flex-col ${
-                  isPerfect ? 'bg-emerald-50/30 border-emerald-100' : 'bg-white border-slate-100'
+                  isPerfect ? 'bg-emerald-50/30 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20' : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-white/10'
                 } ${isOnCooldown ? 'opacity-75' : ''}`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex gap-2">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                        challenge.type === 'quiz' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                        challenge.type === 'quiz' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400'
                       }`}>
                         {challenge.type === 'quiz' ? 'Quiz' : 'Atividade'}
                       </span>
-                      <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600 flex items-center gap-1">
+                      <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" /> Concluído
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-brand-600 font-bold text-sm">
+                    <div className="flex items-center gap-1 text-brand-600 dark:text-brand-400 font-bold text-sm">
                       <Zap className="w-4 h-4 fill-brand-500" />
                       {isGraded ? submission.earnedPoints : challenge.points} pts
                     </div>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">{challenge.title}</h3>
-                  <p className="text-slate-500 text-sm mb-6 line-clamp-2">{challenge.description}</p>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{challenge.title}</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 line-clamp-2">{challenge.description}</p>
                   
                   {isOnCooldown && (
-                    <div className="mb-4 p-3 bg-red-50 rounded-xl border border-red-100">
-                      <p className="text-xs text-red-600 font-medium flex items-center gap-2">
+                    <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-100 dark:border-red-500/20">
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
                         Tente novamente em {remainingMinutes} min
                       </p>
                     </div>
                   )}
 
-                  <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
+                  <div className="mt-auto pt-6 border-t border-slate-50 dark:border-white/5 flex items-center justify-between">
                     <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                      <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                         <CheckCircle className="w-4 h-4" />
                         {isGraded ? `Nota: ${submission.grade}%` : 'Enviado'}
                       </div>
                       {challenge.type === 'quiz' && isGraded && (
                         <button 
                           onClick={() => setReviewQuiz({ challenge, submission })}
-                          className="text-[10px] font-bold text-brand-500 hover:text-brand-600 flex items-center gap-1 uppercase tracking-wider"
+                          className="text-[10px] font-bold text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1 uppercase tracking-wider"
                         >
                           Ver Revisão <ChevronRight className="w-3 h-3" />
                         </button>
@@ -496,7 +494,7 @@ export default function Challenges() {
                     {(!isPerfect && !isOnCooldown) && (
                       <button 
                         onClick={() => challenge.type === 'quiz' ? startQuiz(challenge) : setSelectedChallenge(challenge)}
-                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-900 dark:bg-brand-500 text-white hover:bg-slate-800 transition-colors flex items-center gap-2"
                       >
                         Refazer <RefreshCcw className="w-4 h-4" />
                       </button>
@@ -536,15 +534,15 @@ export default function Challenges() {
       {startConfirmation && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4">
           <div 
-            className="bg-white p-8 rounded-[32px] shadow-2xl max-w-md w-full border border-slate-100"
+            className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] shadow-2xl max-w-md w-full border border-slate-100 dark:border-white/10 transition-colors"
           >
-              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                <AlertCircle className="w-8 h-8 text-amber-500" />
+              <div className="w-16 h-16 bg-amber-50 dark:bg-amber-500/20 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <AlertCircle className="w-8 h-8 text-amber-500 dark:text-amber-400" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 text-center mb-4">Iniciar Quiz?</h2>
-              <div className="space-y-4 text-slate-600 text-center mb-8">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-4">Iniciar Quiz?</h2>
+              <div className="space-y-4 text-slate-600 dark:text-slate-400 text-center mb-8">
                 <p className="font-medium">
-                  ATENÇÃO: Ao iniciar o quiz, você <span className="text-red-600 font-bold">NÃO</span> poderá fechar a janela ou trocar de página.
+                  ATENÇÃO: Ao iniciar o quiz, você <span className="text-red-600 dark:text-red-400 font-bold">NÃO</span> poderá fechar a janela ou trocar de página.
                 </p>
                 <p className="text-sm">
                   Se você sair ou minimizar a página, perderá a tentativa e só poderá acessar novamente após 15 minutos.
@@ -553,13 +551,13 @@ export default function Challenges() {
               <div className="flex gap-4">
                 <button 
                   onClick={() => setStartConfirmation(null)}
-                  className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
+                  className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button 
                   onClick={confirmStartQuiz}
-                  className="flex-1 px-6 py-4 rounded-2xl bg-brand-500 text-white font-bold hover:bg-brand-600 transition-colors shadow-lg shadow-brand-100"
+                  className="flex-1 px-6 py-4 rounded-2xl bg-brand-500 text-white font-bold hover:bg-brand-600 transition-colors shadow-lg shadow-brand-100 dark:shadow-none"
                 >
                   Iniciar Agora
                 </button>
@@ -572,28 +570,28 @@ export default function Challenges() {
       {cancelConfirmation && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[70] flex items-center justify-center p-4">
           <div 
-            className="bg-white p-8 rounded-[32px] shadow-2xl max-w-md w-full border border-slate-100"
+            className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] shadow-2xl max-w-md w-full border border-slate-100 dark:border-white/10 transition-colors"
           >
-              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                <AlertCircle className="w-8 h-8 text-red-500" />
+              <div className="w-16 h-16 bg-red-50 dark:bg-red-500/20 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <AlertCircle className="w-8 h-8 text-red-500 dark:text-red-400" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 text-center mb-4">Sair do Quiz?</h2>
-              <div className="space-y-4 text-slate-600 text-center mb-8">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-4">Sair do Quiz?</h2>
+              <div className="space-y-4 text-slate-600 dark:text-slate-400 text-center mb-8">
                 <p className="font-medium">
-                  Se você sair agora, perderá esta tentativa e terá que esperar <span className="text-red-600 font-bold">15 minutos</span> para tentar novamente.
+                  Se você sair agora, perderá esta tentativa e terá que esperar <span className="text-red-600 dark:text-red-400 font-bold">15 minutos</span> para tentar novamente.
                 </p>
                 <p className="text-sm">Deseja realmente sair?</p>
               </div>
               <div className="flex gap-4">
                 <button 
                   onClick={() => setCancelConfirmation(null)}
-                  className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
+                  className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
                   Continuar Quiz
                 </button>
                 <button 
                   onClick={() => applyPenalty(cancelConfirmation)}
-                  className="flex-1 px-6 py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-100"
+                  className="flex-1 px-6 py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-100 dark:shadow-none"
                 >
                   Sair e Bloquear
                 </button>

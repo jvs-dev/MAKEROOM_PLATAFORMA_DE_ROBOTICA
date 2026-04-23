@@ -16,8 +16,11 @@ dotenv.config();
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
-// Use the provided key if env is not set
-const ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN || 'APP_USR-5759807561711985-082700-d646978e83b51b826768cadb8c7a4ae3-1945286731';
+// Use environment variable and throw error if missing
+const ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+if (!ACCESS_TOKEN) {
+  throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not set in environment variables");
+}
 
 const client = new MercadoPagoConfig({ 
   accessToken: ACCESS_TOKEN

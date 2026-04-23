@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { User, Mail, Shield, Award, Calendar, ChevronRight, Download, Loader2, Camera, X, Check, ChevronLeft, Trophy, Bell, BellOff } from 'lucide-react';
+import { User, Mail, Shield, Award, Calendar, ChevronRight, Download, Loader2, Camera, X, Check, ChevronLeft, Trophy, Bell, BellOff, Moon, Sun } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { requestNotificationPermission, showBrowserNotification } from '../services/notificationService';
 
@@ -34,7 +34,29 @@ export default function Profile() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'denied'
   );
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Check localStorage first
+    const saved = localStorage.getItem('theme');
+    if (saved) return saved === 'dark';
+    // Fallback to classList or media query
+    return document.documentElement.classList.contains('dark') || 
+           window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  const toggleTheme = (dark: boolean) => {
+    setIsDarkMode(dark);
+  };
 
   const predefinedAvatars = [
     { style: 'avataaars', seed: 'Felix' },
@@ -157,6 +179,13 @@ export default function Profile() {
         photoURL: url
       });
       
+      // Update public profile
+      if (auth.currentUser.uid) {
+        await updateDoc(doc(db, 'public_profiles', auth.currentUser.uid), {
+          photoURL: url
+        });
+      }
+      
       setUserData(prev => prev ? { ...prev, photoURL: url } : null);
       setShowAvatarModal(false);
     } catch (err) {
@@ -212,10 +241,10 @@ export default function Profile() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
-      <header className="bg-white p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-center gap-6 md:gap-8">
+      <header className="bg-white dark:bg-zinc-900 p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 flex flex-col md:flex-row items-center gap-6 md:gap-8 transition-colors">
         <div 
           onClick={() => setShowAvatarModal(true)}
-          className="w-24 h-24 md:w-32 md:h-32 bg-brand-100 rounded-full flex items-center justify-center relative overflow-hidden ring-4 ring-brand-50 cursor-pointer group shrink-0"
+          className="w-24 h-24 md:w-32 md:h-32 bg-brand-100 dark:bg-brand-500/20 rounded-full flex items-center justify-center relative overflow-hidden ring-4 ring-brand-50 dark:ring-brand-500/10 cursor-pointer group shrink-0"
         >
           <img 
             src={userData.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.uid}`} 
@@ -226,28 +255,28 @@ export default function Profile() {
             <Camera className="text-white w-6 h-6 md:w-8 md:h-8" />
           </div>
           {isUpdatingPhoto && (
-            <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
+            <div className="absolute inset-0 bg-white/60 dark:bg-black/60 flex items-center justify-center">
               <Loader2 className="w-6 h-6 md:w-8 md:h-8 animate-spin text-brand-500" />
             </div>
           )}
         </div>
         <div className="flex-1 text-center md:text-left">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1">{userData.name}</h1>
-          <p className="text-sm md:text-base text-slate-500 mb-4">{userData.email}</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1">{userData.name}</h1>
+          <p className="text-sm md:text-base text-slate-500 dark:text-slate-400 mb-4">{userData.email}</p>
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-3">
-            <span className={`px-3 md:px-4 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest border ${
-              userData.role === 'admin' ? 'bg-purple-50 text-purple-600 border-purple-100' :
-              userData.role === 'student' ? 'bg-brand-50 text-brand-600 border-brand-100' :
-              'bg-slate-50 text-slate-600 border-slate-100'
+            <span className={`px-3 md:px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${
+              userData.role === 'admin' ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-100 dark:border-purple-500/20' :
+              userData.role === 'student' ? 'bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-100 dark:border-brand-500/20' :
+              'bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-100 dark:border-white/10'
             }`}>
               {userData.role === 'admin' ? 'Administrador' : userData.role === 'student' ? 'Estudante' : 'Externo'}
             </span>
             {userData.role === 'student' && (
-              <span className="bg-emerald-50 text-emerald-600 px-3 md:px-4 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest border border-emerald-100">
+              <span className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 md:px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest border border-emerald-100 dark:border-emerald-500/20">
                 {userData.teamId} - {userData.room}
               </span>
             )}
-            <span className="bg-slate-50 text-slate-600 px-3 md:px-4 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest border border-slate-100">
+            <span className="bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 px-3 md:px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest border border-slate-100 dark:border-white/10">
               {userData.points} Pontos
             </span>
           </div>
@@ -256,8 +285,8 @@ export default function Profile() {
 
       {/* Medals Section */}
       {userData.medals && userData.medals.length > 0 && (
-        <div className="bg-white p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100">
-          <h2 className="text-lg md:text-xl font-bold text-slate-900 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
+        <div className="bg-white dark:bg-zinc-900 p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 transition-colors">
+          <h2 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
             <Trophy className="w-5 h-5 md:w-6 md:h-6 text-brand-500" /> Minhas Medalhas da Temporada
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-6">
@@ -267,13 +296,13 @@ export default function Profile() {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.1 }}
-                className="flex flex-col items-center p-3 md:p-4 rounded-xl md:rounded-2xl bg-slate-50 border border-slate-100 hover:shadow-md transition-shadow"
+                className="flex flex-col items-center p-3 md:p-4 rounded-xl md:rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 hover:shadow-md transition-all"
               >
                 <div className={`w-12 h-12 md:w-16 md:h-16 rounded-full bg-gradient-to-br ${medalColors[medal.type]} flex items-center justify-center text-2xl md:text-3xl shadow-lg mb-2 md:mb-3`}>
                   {medalIcons[medal.type]}
                 </div>
-                <p className="text-[10px] md:text-xs font-bold text-slate-900 capitalize">{medal.type === 'gold' ? 'Ouro' : medal.type === 'silver' ? 'Prata' : 'Bronze'}</p>
-                <p className="text-[9px] md:text-[10px] text-slate-400 font-medium">{medal.date}</p>
+                <p className="text-xs font-bold text-slate-900 dark:text-white capitalize">{medal.type === 'gold' ? 'Ouro' : medal.type === 'silver' ? 'Prata' : 'Bronze'}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 font-medium">{medal.date}</p>
               </motion.div>
             ))}
           </div>
@@ -282,54 +311,86 @@ export default function Profile() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
         <div className="md:col-span-1 space-y-6">
-          <div className="bg-white p-6 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100">
-            <h2 className="text-base md:text-lg font-bold text-slate-900 mb-4 md:mb-6 flex items-center gap-2">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 transition-colors">
+            <h2 className="text-base md:text-lg font-bold text-slate-900 dark:text-white mb-4 md:mb-6 flex items-center gap-2">
               <User className="w-5 h-5 text-brand-500" /> Detalhes
             </h2>
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 md:w-10 md:h-10 bg-slate-50 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
-                  <Mail className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
+                <div className="w-9 h-9 md:w-10 md:h-10 bg-slate-50 dark:bg-white/5 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                  <Mail className="w-4 h-4 md:w-5 md:h-5 text-slate-400 dark:text-slate-500" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Email</p>
-                  <p className="text-xs md:text-sm text-slate-700 font-medium truncate">{userData.email}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Email</p>
+                  <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 font-medium truncate">{userData.email}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 md:w-10 md:h-10 bg-slate-50 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
-                  <Shield className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
+                <div className="w-9 h-9 md:w-10 md:h-10 bg-slate-50 dark:bg-white/5 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                  <Shield className="w-4 h-4 md:w-5 md:h-5 text-slate-400 dark:text-slate-500" />
                 </div>
                 <div>
-                  <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Permissão</p>
-                  <p className="text-xs md:text-sm text-slate-700 font-medium capitalize">{userData.role}</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Permissão</p>
+                  <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 font-medium capitalize">{userData.role}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 md:w-10 md:h-10 bg-slate-50 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
-                  <Calendar className="w-4 h-4 md:w-5 md:h-5 text-slate-400" />
+                <div className="w-9 h-9 md:w-10 md:h-10 bg-slate-50 dark:bg-white/5 rounded-lg md:rounded-xl flex items-center justify-center shrink-0">
+                  <Calendar className="w-4 h-4 md:w-5 md:h-5 text-slate-400 dark:text-slate-500" />
                 </div>
                 <div>
-                  <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Membro desde</p>
-                  <p className="text-xs md:text-sm text-slate-700 font-medium">Março 2026</p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Membro desde</p>
+                  <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 font-medium">Março 2026</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100">
-            <h2 className="text-base md:text-lg font-bold text-slate-900 mb-4 md:mb-6 flex items-center gap-2">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 transition-colors">
+            <h2 className="text-base md:text-lg font-bold text-slate-900 dark:text-white mb-4 md:mb-6 flex items-center gap-2">
+              <Sun className="w-5 h-5 text-brand-500" /> Tema da Plataforma
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => toggleTheme(false)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                  !isDarkMode 
+                    ? 'bg-brand-50 dark:bg-brand-500/20 border-brand-500 text-brand-600 dark:text-brand-400 shadow-lg shadow-brand-500/10' 
+                    : 'bg-slate-50 dark:bg-white/5 border-transparent text-slate-400 dark:text-slate-500 hover:border-slate-200 dark:hover:border-white/10'
+                }`}
+              >
+                <Sun className="w-6 h-6" />
+                <span className="text-xs font-bold uppercase tracking-wider">Claro</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => toggleTheme(true)}
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                  isDarkMode 
+                    ? 'bg-slate-800 dark:bg-white/10 border-white/20 text-white shadow-xl shadow-black/20' 
+                    : 'bg-slate-50 dark:bg-white/5 border-transparent text-slate-400 dark:text-slate-500 hover:border-slate-200 dark:hover:border-white/10'
+                }`}
+              >
+                <Moon className="w-6 h-6" />
+                <span className="text-xs font-bold uppercase tracking-wider">Escuro</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 transition-colors">
+            <h2 className="text-base md:text-lg font-bold text-slate-900 dark:text-white mb-4 md:mb-6 flex items-center gap-2">
               <Bell className="w-5 h-5 text-brand-500" /> Notificações
             </h2>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 md:p-4 bg-slate-50 rounded-xl md:rounded-2xl border border-slate-100">
+              <div className="flex items-center justify-between p-3 md:p-4 bg-slate-50 dark:bg-white/5 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/5">
                 <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center ${notificationPermission === 'granted' ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                  <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center ${notificationPermission === 'granted' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}>
                     {notificationPermission === 'granted' ? <Bell className="w-4 h-4 md:w-5 md:h-5" /> : <BellOff className="w-4 h-4 md:w-5 md:h-5" />}
                   </div>
                   <div>
-                    <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider">Status</p>
-                    <p className="text-xs md:text-sm text-slate-700 font-medium">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Status</p>
+                    <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 font-medium">
                       {notificationPermission === 'granted' ? 'Ativadas' : notificationPermission === 'denied' ? 'Bloqueadas' : 'Não configuradas'}
                     </p>
                   </div>
@@ -343,7 +404,7 @@ export default function Profile() {
                   </button>
                 )}
               </div>
-              <p className="text-[9px] md:text-[10px] text-slate-400 leading-relaxed px-1">
+              <p className="text-[9px] md:text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed px-1">
                 {notificationPermission === 'granted' 
                   ? 'Você receberá notificações push sobre o status das suas compras e atualizações da plataforma.'
                   : 'Ative as notificações para ser avisado quando seu pedido sair para entrega ou estiver pronto para retirada.'}
@@ -353,19 +414,19 @@ export default function Profile() {
         </div>
 
         <div className="md:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100">
+          <div className="bg-white dark:bg-zinc-900 p-6 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 transition-colors">
             <div className="flex items-center justify-between mb-6 md:mb-8">
-              <h2 className="text-base md:text-lg font-bold text-slate-900 flex items-center gap-2">
+              <h2 className="text-base md:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Award className="w-5 h-5 text-brand-500" /> Meus Certificados
               </h2>
-              <span className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider">
+              <span className="text-[10px] md:text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
                 {certificates.length} Total
               </span>
             </div>
 
             {certificates.length === 0 ? (
-              <div className="text-center py-10 md:py-12 bg-slate-50 rounded-xl md:rounded-2xl border-2 border-dashed border-slate-200">
-                <Award className="w-10 h-10 md:w-12 md:h-12 text-slate-200 mx-auto mb-3 md:mb-4" />
+              <div className="text-center py-10 md:py-12 bg-slate-50 dark:bg-white/5 rounded-xl md:rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10">
+                <Award className="w-10 h-10 md:w-12 md:h-12 text-slate-200 dark:text-white/10 mx-auto mb-3 md:mb-4" />
                 <p className="text-sm md:text-base text-slate-400 font-medium">Você ainda não possui certificados.</p>
                 <p className="text-[10px] md:text-xs text-slate-400">Complete trilhas de cursos para ganhar!</p>
               </div>
@@ -375,18 +436,18 @@ export default function Profile() {
                   <div 
                     key={cert.id} 
                     onClick={() => handlePrintCertificate(cert)}
-                    className="flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl md:rounded-2xl border border-slate-100 hover:border-brand-200 hover:bg-brand-50 transition-all duration-200 group cursor-pointer"
+                    className="flex items-center gap-3 md:gap-4 p-3 md:p-4 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/10 hover:border-brand-200 dark:hover:border-brand-500/30 hover:bg-brand-50 dark:hover:bg-brand-500/5 transition-all duration-200 group cursor-pointer"
                   >
-                    <div className="w-10 h-10 md:w-12 md:h-12 bg-brand-100 rounded-lg md:rounded-xl flex items-center justify-center group-hover:bg-brand-500 transition-colors shrink-0">
-                      <Award className="w-5 h-5 md:w-6 md:h-6 text-brand-600 group-hover:text-white transition-colors" />
+                    <div className="w-10 h-10 md:w-12 md:h-12 bg-brand-100 dark:bg-white/10 rounded-lg md:rounded-xl flex items-center justify-center group-hover:bg-brand-500 transition-colors shrink-0">
+                      <Award className="w-5 h-5 md:w-6 md:h-6 text-brand-600 dark:text-brand-400 group-hover:text-white transition-colors" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-sm md:text-base text-slate-900 truncate">{cert.courseTitle}</h3>
-                      <p className="text-[10px] md:text-xs text-slate-500">
+                      <h3 className="font-bold text-sm md:text-base text-slate-900 dark:text-white truncate">{cert.courseTitle}</h3>
+                      <p className="text-[10px] md:text-xs text-slate-500 dark:text-slate-400">
                         Emitido em {cert.issueDate?.toDate ? cert.issueDate.toDate().toLocaleDateString() : 'Recentemente'}
                       </p>
                     </div>
-                    <Download className="w-4 h-4 md:w-5 md:h-5 text-slate-300 group-hover:text-brand-500 shrink-0" />
+                    <Download className="w-4 h-4 md:w-5 md:h-5 text-slate-300 dark:text-slate-700 group-hover:text-brand-500 shrink-0 transition-colors" />
                   </div>
                 ))}
               </div>
@@ -398,21 +459,21 @@ export default function Profile() {
       {/* Avatar Selection Modal */}
       <AnimatePresence>
         {showAvatarModal && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white rounded-[24px] md:rounded-[32px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+              className="bg-white dark:bg-zinc-900 rounded-[24px] md:rounded-[32px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-white/10"
             >
-              <div className="p-6 md:p-8 border-b border-slate-100 flex items-center justify-between">
+              <div className="p-6 md:p-8 border-b border-slate-100 dark:border-white/10 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl md:text-2xl font-bold text-slate-900">Escolha seu Avatar</h2>
-                  <p className="text-xs md:text-sm text-slate-500">Selecione uma imagem para o seu perfil</p>
+                  <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Escolha seu Avatar</h2>
+                  <p className="text-xs md:text-sm text-slate-500 dark:text-slate-400">Selecione uma imagem para o seu perfil</p>
                 </div>
                 <button 
                   onClick={() => setShowAvatarModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-full transition-colors"
+                  className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-full transition-colors"
                 >
                   <X className="w-5 h-5 md:w-6 md:h-6 text-slate-400" />
                 </button>
@@ -421,14 +482,14 @@ export default function Profile() {
               <div className="relative group/modal">
                 <button
                   onClick={() => scroll('left')}
-                  className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 bg-white/90 backdrop-blur-sm border border-slate-100 rounded-full shadow-lg text-slate-600 hover:text-brand-500 hover:scale-110 transition-all md:opacity-0 group-hover/modal:opacity-100"
+                  className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm border border-slate-100 dark:border-white/10 rounded-full shadow-lg text-slate-600 dark:text-slate-300 hover:text-brand-500 hover:scale-110 transition-all md:opacity-0 group-hover/modal:opacity-100"
                 >
                   <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
 
                 <div 
                   ref={scrollRef}
-                  className="p-6 md:p-10 overflow-x-auto flex gap-4 md:gap-8 snap-x snap-mandatory no-scrollbar scroll-smooth"
+                  className="p-6 md:p-10 overflow-x-auto flex gap-4 md:gap-8 snap-x snap-mandatory no-scrollbar scroll-smooth bg-slate-50/30 dark:bg-black/20"
                 >
                   {predefinedAvatars.map((avatar, index) => {
                     const url = `https://api.dicebear.com/7.x/${avatar.style}/svg?seed=${avatar.seed}`;
@@ -440,7 +501,9 @@ export default function Profile() {
                         onClick={() => handleUpdateAvatar(url)}
                         disabled={isUpdatingPhoto}
                         className={`relative flex-shrink-0 w-32 md:w-48 aspect-square rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden border-2 transition-all hover:scale-105 active:scale-95 shadow-sm hover:shadow-xl snap-center ${
-                          isSelected ? 'border-brand-500 ring-4 ring-brand-50' : 'border-slate-100 hover:border-brand-200 bg-slate-50'
+                          isSelected 
+                            ? 'border-brand-500 ring-4 ring-brand-50 dark:ring-brand-500/20' 
+                            : 'border-slate-100 dark:border-white/10 hover:border-brand-200 dark:hover:border-brand-500/30 bg-white dark:bg-zinc-800'
                         }`}
                       >
                         <img 
@@ -462,16 +525,16 @@ export default function Profile() {
 
                 <button
                   onClick={() => scroll('right')}
-                  className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 bg-white/90 backdrop-blur-sm border border-slate-100 rounded-full shadow-lg text-slate-600 hover:text-brand-500 hover:scale-110 transition-all md:opacity-0 group-hover/modal:opacity-100"
+                  className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-10 p-2 md:p-3 bg-white/90 dark:bg-zinc-800/90 backdrop-blur-sm border border-slate-100 dark:border-white/10 rounded-full shadow-lg text-slate-600 dark:text-slate-300 hover:text-brand-500 hover:scale-110 transition-all md:opacity-0 group-hover/modal:opacity-100"
                 >
                   <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
                 </button>
               </div>
 
-              <div className="p-4 md:p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <div className="p-4 md:p-6 bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-100 dark:border-white/10 flex justify-end">
                 <button
                   onClick={() => setShowAvatarModal(false)}
-                  className="px-5 md:px-6 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-colors text-sm"
+                  className="px-5 md:px-6 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-sm"
                 >
                   Cancelar
                 </button>

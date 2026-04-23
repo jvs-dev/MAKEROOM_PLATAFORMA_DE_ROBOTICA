@@ -153,45 +153,45 @@ export default function ManageProducts() {
     <div className="space-y-8">
       <header className="flex items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Gerenciar Loja 🛒</h1>
-          <p className="text-slate-500">Controle o estoque e preços dos componentes.</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Gerenciar Loja 🛒</h1>
+          <p className="text-slate-500 dark:text-slate-400">Controle o estoque e preços dos componentes.</p>
         </div>
         <button 
           onClick={() => handleOpenModal()}
-          className="bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg shadow-brand-100 flex items-center gap-2"
+          className="bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center gap-2"
         >
           <Plus className="w-5 h-5" /> Novo Produto
         </button>
       </header>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 overflow-hidden transition-colors">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Produto</th>
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Preço</th>
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Estoque</th>
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Ações</th>
+            <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Produto</th>
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Preço</th>
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Estoque</th>
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50 dark:divide-white/5">
             {products.map((product) => (
-              <tr key={product.id} className="hover:bg-slate-50 transition-colors group">
+              <tr key={product.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                 <td className="p-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center overflow-hidden">
-                      <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                    <div className="w-12 h-12 bg-white dark:bg-white/10 rounded-xl flex items-center justify-center overflow-hidden border border-slate-100 dark:border-white/10 shadow-sm">
+                      <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain" />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900">{product.name}</p>
-                      <p className="text-xs text-slate-400 line-clamp-1">{product.description}</p>
+                      <p className="font-bold text-slate-900 dark:text-white">{product.name}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1">{product.description}</p>
                     </div>
                   </div>
                 </td>
-                <td className="p-6 font-bold text-brand-600">R$ {product.price.toFixed(2)}</td>
+                <td className="p-6 font-bold text-brand-600 dark:text-brand-400">R$ {product.price.toFixed(2)}</td>
                 <td className="p-6">
-                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                    product.stock > 10 ? 'bg-brand-50 text-brand-600' : 'bg-red-50 text-red-600'
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${
+                    product.stock > 10 ? 'bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400' : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400'
                   }`}>
                     {product.stock} Unidades
                   </span>
@@ -200,13 +200,13 @@ export default function ManageProducts() {
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <button 
                       onClick={() => handleOpenModal(product)}
-                      className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                      className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-all"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button 
                       onClick={() => setDeleteConfirmation(product)}
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -217,39 +217,39 @@ export default function ManageProducts() {
           </tbody>
         </table>
         {products.length === 0 && !isLoading && (
-          <div className="p-12 text-center text-slate-400 italic">Nenhum produto cadastrado.</div>
+          <div className="p-12 text-center text-slate-400 dark:text-slate-500 italic">Nenhum produto cadastrado.</div>
         )}
       </div>
 
       {deleteConfirmation && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full">
+          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 dark:border-white/10 transition-colors">
             <div className="flex items-center gap-4 text-red-500 mb-6">
-              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-red-50 dark:bg-red-500/20 rounded-2xl flex items-center justify-center">
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">Excluir Produto?</h2>
-                <p className="text-sm text-slate-500">Esta ação não pode ser desfeita.</p>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Excluir Produto?</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Esta ação não pode ser desfeita.</p>
               </div>
             </div>
             
-            <p className="text-slate-600 mb-8">
-              Você está prestes a excluir o produto <span className="font-bold text-slate-900">"{deleteConfirmation.name}"</span>.
+            <p className="text-slate-600 dark:text-slate-400 mb-8">
+              Você está prestes a excluir o produto <span className="font-bold text-slate-900 dark:text-white">"{deleteConfirmation.name}"</span>.
             </p>
             
             <div className="flex gap-4">
               <button 
                 disabled={isDeleting}
                 onClick={() => setDeleteConfirmation(null)}
-                className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-colors disabled:opacity-50"
+                className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button 
                 disabled={isDeleting}
                 onClick={handleDelete}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-red-100 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-red-100 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isDeleting ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
@@ -264,12 +264,12 @@ export default function ManageProducts() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-white/10 transition-colors">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-slate-900">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                 {editingProduct ? 'Editar Produto' : 'Novo Produto'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -277,59 +277,59 @@ export default function ManageProducts() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Nome do Produto</label>
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome do Produto</label>
                   <input 
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                    className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
                     placeholder="Ex: Kit Arduino Uno"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Categoria</label>
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Categoria</label>
                   <select 
                     required
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                    className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
                   >
                     {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
+                      <option key={cat} value={cat} className="dark:bg-zinc-900">{cat}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">URL da Imagem</label>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">URL da Imagem</label>
                 <input 
                   required
                   value={formData.imageUrl}
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
                   placeholder="https://..."
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Descrição</label>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Descrição</label>
                 <textarea 
                   required
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none"
+                  className="w-full h-32 p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none"
                   placeholder="Descreva o produto e o que vem no kit..."
                 />
               </div>
 
               {formData.category === 'Kits' && (
-                <div className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                <div className="space-y-4 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/10">
                   <div className="flex items-center gap-2 mb-2">
                     <Package className="w-5 h-5 text-brand-500" />
-                    <h3 className="font-bold text-slate-900">Itens do Kit</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-white">Itens do Kit</h3>
                   </div>
-                  <p className="text-xs text-slate-500 mb-4">Selecione os componentes, ferramentas e acessórios que compõem este kit.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Selecione os componentes, ferramentas e acessórios que compõem este kit.</p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                     {products
@@ -341,14 +341,14 @@ export default function ManageProducts() {
                           onClick={() => toggleItem(product.id)}
                           className={`flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
                             formData.items.includes(product.id)
-                              ? 'bg-brand-50 border-brand-200 text-brand-700'
-                              : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+                              ? 'bg-brand-50 dark:bg-brand-500/20 border-brand-200 dark:border-brand-500/40 text-brand-700 dark:text-brand-300'
+                              : 'bg-white dark:bg-white/10 border-slate-100 dark:border-white/10 text-slate-600 dark:text-slate-400 hover:border-slate-200 dark:hover:border-white/20'
                           }`}
                         >
                           <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
                             formData.items.includes(product.id)
                               ? 'bg-brand-500 border-brand-500'
-                              : 'bg-white border-slate-300'
+                              : 'bg-white dark:bg-zinc-800 border-slate-300 dark:border-white/10'
                           }`}>
                             {formData.items.includes(product.id) && (
                               <div className="w-2 h-2 bg-white rounded-full" />
@@ -362,19 +362,19 @@ export default function ManageProducts() {
               )}
 
               {formData.category === 'Kits' && (
-                <div className="space-y-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                <div className="space-y-4 p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/10">
                   <div className="flex items-center gap-2 mb-2">
                     <Plus className="w-5 h-5 text-brand-500" />
-                    <h3 className="font-bold text-slate-900">Itens Extras (Texto)</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-white">Itens Extras (Texto)</h3>
                   </div>
-                  <p className="text-xs text-slate-500 mb-4">Adicione itens que não estão cadastrados como produtos (ex: parafusos, cabos, etc).</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">Adicione itens que não estão cadastrados como produtos (ex: parafusos, cabos, etc).</p>
                   
                   <div className="flex gap-2">
                     <input 
                       type="text"
                       id="extra-item-input"
                       placeholder="Nome do item extra..."
-                      className="flex-1 p-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm"
+                      className="flex-1 p-3 bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-sm"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -399,7 +399,7 @@ export default function ManageProducts() {
 
                   <div className="flex flex-wrap gap-2">
                     {formData.extraItems.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-full text-sm font-medium text-slate-600">
+                      <div key={index} className="flex items-center gap-2 bg-white dark:bg-white/10 border border-slate-200 dark:border-white/10 px-3 py-1.5 rounded-full text-sm font-medium text-slate-600 dark:text-slate-400">
                         {item}
                         <button 
                           type="button"
@@ -416,7 +416,7 @@ export default function ManageProducts() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Preço Original (R$)</label>
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Preço Original (R$)</label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -425,12 +425,12 @@ export default function ManageProducts() {
                       step="0.01"
                       value={isNaN(formData.originalPrice || 0) ? '' : (formData.originalPrice || 0)}
                       onChange={(e) => setFormData({ ...formData, originalPrice: parseFloat(e.target.value) })}
-                      className="w-full p-3 pl-10 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                      className="w-full p-3 pl-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Preço Promoção (R$)</label>
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Preço Promoção (R$)</label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -438,13 +438,13 @@ export default function ManageProducts() {
                       step="0.01"
                       value={isNaN(formData.promotionPrice || 0) ? '' : (formData.promotionPrice || 0)}
                       onChange={(e) => setFormData({ ...formData, promotionPrice: parseFloat(e.target.value) })}
-                      className="w-full p-3 pl-10 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                      className="w-full p-3 pl-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
                       placeholder="Opcional"
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Estoque Inicial</label>
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Estoque Inicial</label>
                   <div className="relative">
                     <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -452,7 +452,7 @@ export default function ManageProducts() {
                       type="number"
                       value={isNaN(formData.stock) ? '' : formData.stock}
                       onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) })}
-                      className="w-full p-3 pl-10 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                      className="w-full p-3 pl-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
                     />
                   </div>
                 </div>
@@ -462,13 +462,13 @@ export default function ManageProducts() {
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-colors"
+                  className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 flex items-center justify-center gap-2"
+                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center justify-center gap-2"
                 >
                   <Save className="w-5 h-5" /> Salvar Produto
                 </button>

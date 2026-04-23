@@ -42,6 +42,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() &&
         (request.auth.token.email == "jvssilv4@gmail.com" ||
+         request.auth.uid == "xsBVtoVM0KOywnRYaMPTKvduVL62" ||
          (request.auth.token.email != null && 
           exists(/databases/$(database)/documents/users/$(request.auth.token.email)) && 
           (get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role == 'admin' ||
@@ -241,6 +242,39 @@ service cloud.firestore {
              (!('id' in data) || data.id is string);
     }
 
+    function isValidRankingPrize(data) {
+      return hasOnlyAllowedFields(['is_active', 'prize_name', 'prize_description', 'prize_image_url', 'updatedAt', 'id']) &&
+             data.is_active is bool &&
+             data.prize_name is string && data.prize_name.size() > 0 && data.prize_name.size() < 200 &&
+             (!('prize_description' in data) || (data.prize_description is string && data.prize_description.size() <= 200)) &&
+             (!('prize_image_url' in data) || (data.prize_image_url is string && data.prize_image_url.size() < 1000)) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidPublicProfile(data) {
+      return hasOnlyAllowedFields(['uid', 'displayName', 'photoURL', 'points', 'role', 'schoolId', 'teamId', 'room', 'id']) &&
+             data.uid is string &&
+             data.displayName is string && data.displayName.size() > 0 &&
+             (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() < 1000)) &&
+             data.points is number &&
+             data.role is string &&
+             (!('schoolId' in data) || data.schoolId == null || (data.schoolId is string && data.schoolId.size() < 100)) &&
+             (!('teamId' in data) || data.teamId == null || (data.teamId is string && data.teamId.size() < 100)) &&
+             (!('room' in data) || data.room == null || (data.room is string && data.room.size() < 100)) &&
+             (!('id' in data) || data.id is string);
+    }
+
+    function isValidAnnouncement(data) {
+      return hasOnlyAllowedFields(['imageUrl', 'redirectUrl', 'isActive', 'createdAt', 'updatedAt', 'id']) &&
+             data.imageUrl is string && data.imageUrl.size() < 1000 &&
+             data.redirectUrl is string && data.redirectUrl.size() < 1000 &&
+             data.isActive is bool &&
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('id' in data) || data.id is string);
+    }
+
     function areImmutableFieldsUnchanged(fields) {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
     }
@@ -250,17 +284,16 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{email} {
-      // Allow any authenticated user to read users (needed for Ranking and Teams)
-      // WARNING: This exposes user emails (doc IDs) and other fields to all logged-in users.
-      // Recommendation: Split into users_public and users_private collections for better PII protection.
-      allow read: if isAuthenticated();
+      // ONLY owner or admin can read full user data
+      allow get: if isAuthenticated() && (isOwner(email) || isAdmin());
+      allow list: if isAdmin();
       
       allow create: if isAuthenticated() && isOwner(email) && isValidUser(request.resource.data) && 
                     (
                       (request.resource.data.role in ['student', 'external'] && 
                        (!('admin' in request.resource.data) || request.resource.data.admin == false) &&
                        (!('points' in request.resource.data) || request.resource.data.points == 0)) ||
-                      (email == "jvssilv4@gmail.com" && request.resource.data.role == 'admin' && request.resource.data.admin == true)
+                      ((email == "jvssilv4@gmail.com" || request.auth.uid == "xsBVtoVM0KOywnRYaMPTKvduVL62") && request.resource.data.role == 'admin' && request.resource.data.admin == true)
                     );
       allow update: if isAuthenticated() && (
         (isOwner(email) && isValidUser(request.resource.data) && 
@@ -376,16 +409,40 @@ service cloud.firestore {
     }
     
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.token.email || request.auth.token.email == "jvssilv4@gmail.com" || isAdmin());
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.token.email && 
+      // Allow individual read
+      allow get: if isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.userId == request.auth.token.email || isAdmin());
+      
+      // Allow list queries - splitting to help rules optimization
+      allow list: if isAdmin();
+      allow list: if isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.userId == request.auth.token.email);
+
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.token.email || resource.data.userId == request.auth.uid) && 
                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.token.email;
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.token.email || resource.data.userId == request.auth.uid);
       allow create: if isAuthenticated(); // Allow users to notify admins about orders
     }
     
     match /metadata/{docId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    match /settings/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() && isValidRankingPrize(request.resource.data);
+    }
+
+    match /public_profiles/{uid} {
+      allow read: if isAuthenticated();
+      // Users can only update their own public profiles, or admins can update any
+      allow create, update: if isAuthenticated() && (request.auth.uid == uid || isAdmin()) && isValidPublicProfile(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /announcements/{annId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() && isValidAnnouncement(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     // Default deny

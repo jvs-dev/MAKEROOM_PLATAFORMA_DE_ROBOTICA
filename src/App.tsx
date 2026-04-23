@@ -29,7 +29,9 @@ import ManageOrders from './pages/admin/ManageOrders';
 import ManageSchools from './pages/admin/ManageSchools';
 import ManageUsers from './pages/admin/ManageUsers';
 import ManageCourses from './pages/admin/ManageCourses';
+import ManageRankPrize from './pages/admin/ManageRankPrize';
 import ProjectNotes from './pages/admin/ProjectNotes';
+import ManageAnnouncements from './pages/admin/ManageAnnouncements';
 import ErrorBoundary from './components/ErrorBoundary';
 
 import { requestNotificationPermission, initNotificationListener } from './services/notificationService';
@@ -53,7 +55,7 @@ export default function App() {
         
         // Initialize notification listener for the user
         if (stopListener) stopListener();
-        stopListener = initNotificationListener(user.email);
+        stopListener = initNotificationListener(user.uid);
       } else {
         setUserRole(null);
         if (stopListener) {
@@ -72,7 +74,7 @@ export default function App() {
 
   if (!isAuthReady) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-deep-black transition-colors">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500"></div>
       </div>
     );
@@ -104,8 +106,10 @@ export default function App() {
               <Route path="/admin/orders" element={<ManageOrders />} />
               <Route path="/admin/users" element={<ManageUsers />} />
               <Route path="/admin/courses" element={<ManageCourses />} />
+              <Route path="/admin/rank-prize" element={<ManageRankPrize />} />
               <Route path="/admin/schools" element={<ManageSchools />} />
               <Route path="/admin/notes" element={<ProjectNotes />} />
+              <Route path="/admin/announcements" element={<ManageAnnouncements />} />
             </Route>
           </Route>
 

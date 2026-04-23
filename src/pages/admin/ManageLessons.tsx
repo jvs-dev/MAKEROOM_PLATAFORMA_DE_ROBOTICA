@@ -100,67 +100,67 @@ export default function ManageLessons() {
     <div className="space-y-8">
       <header className="flex items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Gerenciar Aulas 📚</h1>
-          <p className="text-slate-500">Adicione, edite ou remova conteúdos educativos.</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Gerenciar Aulas 📚</h1>
+          <p className="text-slate-500 dark:text-slate-400">Adicione, edite ou remova conteúdos educativos.</p>
         </div>
         <button 
           onClick={() => handleOpenModal()}
-          className="bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg shadow-brand-100 flex items-center gap-2"
+          className="bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center gap-2"
         >
           <Plus className="w-5 h-5" /> Nova Aula
         </button>
       </header>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 overflow-hidden transition-colors">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Título</th>
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Categoria</th>
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Turma</th>
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Ações</th>
+            <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Título</th>
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Categoria</th>
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Turma</th>
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50 dark:divide-white/5">
             {lessons.map((lesson) => (
-              <tr key={lesson.id} className="hover:bg-slate-50 transition-colors group">
+              <tr key={lesson.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                 <td className="p-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center overflow-hidden border border-slate-100">
+                    <div className="w-10 h-10 bg-white dark:bg-white/10 rounded-xl flex items-center justify-center overflow-hidden border border-slate-100 dark:border-white/10 shadow-sm transition-colors">
                       {lesson.imageUrl ? (
-                        <img src={lesson.imageUrl} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        <img src={lesson.imageUrl} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                       ) : (
                         <BookOpen className="w-5 h-5 text-blue-500" />
                       )}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 flex items-center gap-2">
+                      <p className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         {lesson.title}
-                        {lesson.videoUrl && <Youtube className="w-3.5 h-3.5 text-red-500" />}
+                        {lesson.videoUrl && <Youtube className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />}
                       </p>
-                      <p className="text-xs text-slate-400 line-clamp-1">{lesson.description}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1">{lesson.description}</p>
                     </div>
                   </div>
                 </td>
                 <td className="p-6">
-                  <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                  <span className="bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
                     {lesson.category}
                   </span>
                 </td>
                 <td className="p-6">
-                  <span className="text-sm text-slate-500">{lesson.teamId || 'Todas'}</span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400">{lesson.teamId || 'Todas'}</span>
                 </td>
                 <td className="p-6 text-right">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <button 
                       onClick={() => handleOpenModal(lesson)}
-                      className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                      className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-all"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button 
                       onClick={() => setDeleteConfirmation(lesson)}
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -171,39 +171,39 @@ export default function ManageLessons() {
           </tbody>
         </table>
         {lessons.length === 0 && !isLoading && (
-          <div className="p-12 text-center text-slate-400 italic">Nenhuma aula cadastrada.</div>
+          <div className="p-12 text-center text-slate-400 dark:text-slate-500 italic">Nenhuma aula cadastrada.</div>
         )}
       </div>
 
       {deleteConfirmation && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full">
+          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 dark:border-white/10 transition-colors">
             <div className="flex items-center gap-4 text-red-500 mb-6">
-              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-red-50 dark:bg-red-500/20 rounded-2xl flex items-center justify-center">
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">Excluir Aula?</h2>
-                <p className="text-sm text-slate-500">Esta ação não pode ser desfeita.</p>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Excluir Aula?</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Esta ação não pode ser desfeita.</p>
               </div>
             </div>
             
-            <p className="text-slate-600 mb-8">
-              Você está prestes a excluir a aula <span className="font-bold text-slate-900">"{deleteConfirmation.title}"</span>.
+            <p className="text-slate-600 dark:text-slate-400 mb-8">
+              Você está prestes a excluir a aula <span className="font-bold text-slate-900 dark:text-white">"{deleteConfirmation.title}"</span>.
             </p>
             
             <div className="flex gap-4">
               <button 
                 disabled={isDeleting}
                 onClick={() => setDeleteConfirmation(null)}
-                className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-colors disabled:opacity-50"
+                className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button 
                 disabled={isDeleting}
                 onClick={handleDelete}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-red-100 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-red-100 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isDeleting ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
@@ -218,12 +218,12 @@ export default function ManageLessons() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-white/10 transition-colors">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-slate-900">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                 {editingLesson ? 'Editar Aula' : 'Nova Aula'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -231,68 +231,68 @@ export default function ManageLessons() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Título</label>
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Título</label>
                   <input 
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                    className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
                     placeholder="Ex: Introdução ao Arduino"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Categoria</label>
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Categoria</label>
                   <select 
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                    className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
                   >
-                    <option value="Básico">Básico</option>
-                    <option value="Programação">Programação</option>
-                    <option value="Mecânica">Mecânica</option>
-                    <option value="Eletrônica">Eletrônica</option>
+                    <option value="Básico" className="dark:bg-zinc-900">Básico</option>
+                    <option value="Programação" className="dark:bg-zinc-900">Programação</option>
+                    <option value="Mecânica" className="dark:bg-zinc-900">Mecânica</option>
+                    <option value="Eletrônica" className="dark:bg-zinc-900">Eletrônica</option>
                   </select>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Descrição Curta</label>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Descrição Curta</label>
                 <input 
                   required
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
                   placeholder="Uma breve descrição do que será aprendido."
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Link da Capa (Opcional)</label>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Link da Capa (Opcional)</label>
                 <input 
                   value={formData.imageUrl}
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
                   placeholder="Ex: https://link-da-imagem.com/capa.jpg"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Link do Vídeo (YouTube)</label>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Link do Vídeo (YouTube)</label>
                 <input 
                   value={formData.videoUrl}
                   onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
                   placeholder="Ex: https://www.youtube.com/watch?v=..."
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Conteúdo (Markdown)</label>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Conteúdo (Markdown)</label>
                 <textarea 
                   required
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full h-48 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none"
+                  className="w-full h-48 p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none transition-colors"
                   placeholder="Escreva o conteúdo da aula ou cole o link do vídeo..."
                 />
               </div>
@@ -301,13 +301,13 @@ export default function ManageLessons() {
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-colors"
+                  className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 flex items-center justify-center gap-2"
+                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center justify-center gap-2"
                 >
                   <Save className="w-5 h-5" /> Salvar Aula
                 </button>

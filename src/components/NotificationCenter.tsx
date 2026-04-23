@@ -24,7 +24,7 @@ export default function NotificationCenter() {
 
     const q = query(
       collection(db, 'notifications'),
-      where('userId', '==', auth.currentUser.email),
+      where('userId', 'in', [auth.currentUser.email, auth.currentUser.uid]),
       orderBy('createdAt', 'desc'),
       limit(20)
     );
@@ -36,6 +36,8 @@ export default function NotificationCenter() {
       })) as Notification[];
       setNotifications(notifs);
       setUnreadCount(notifs.filter(n => !n.read).length);
+    }, (err) => {
+      console.error('Error in notification center listener:', err);
     });
 
     return () => unsubscribe();
@@ -84,11 +86,11 @@ export default function NotificationCenter() {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+        className="relative p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all"
       >
         <Bell className="w-6 h-6" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+          <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-zinc-900">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -105,14 +107,14 @@ export default function NotificationCenter() {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 mt-2 w-80 bg-white rounded-3xl shadow-2xl border border-slate-100 z-[70] overflow-hidden"
+              className="absolute right-0 mt-2 w-80 bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-slate-100 dark:border-white/10 z-[70] overflow-hidden"
             >
-              <div className="p-4 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-                <h3 className="font-bold text-slate-900">Notificações</h3>
+              <div className="p-4 border-b border-slate-50 dark:border-white/5 flex items-center justify-between bg-slate-50/50 dark:bg-white/5">
+                <h3 className="font-bold text-slate-900 dark:text-white">Notificações</h3>
                 {unreadCount > 0 && (
                   <button 
                     onClick={markAllAsRead}
-                    className="text-[10px] font-bold text-brand-600 hover:text-brand-700 uppercase tracking-widest"
+                    className="text-[10px] font-bold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 uppercase tracking-widest"
                   >
                     Ler todas
                   </button>
@@ -121,26 +123,26 @@ export default function NotificationCenter() {
 
               <div className="max-h-[400px] overflow-y-auto">
                 {notifications.length > 0 ? (
-                  <div className="divide-y divide-slate-50">
+                  <div className="divide-y divide-slate-50 dark:divide-white/5">
                     {notifications.map((n) => (
                       <div 
                         key={n.id} 
-                        className={`p-4 transition-colors group relative ${n.read ? 'bg-white' : 'bg-brand-50/30'}`}
+                        className={`p-4 transition-colors group relative ${n.read ? 'bg-white dark:bg-transparent' : 'bg-brand-50/30 dark:bg-brand-500/5'}`}
                       >
                         <div className="flex gap-3">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                            n.read ? 'bg-slate-100' : 'bg-white shadow-sm'
+                            n.read ? 'bg-slate-100 dark:bg-white/5' : 'bg-white dark:bg-zinc-800 shadow-sm'
                           }`}>
                             {getIcon(n.type)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-bold text-slate-900 truncate ${n.read ? 'opacity-70' : ''}`}>
+                            <p className={`text-sm font-bold text-slate-900 dark:text-white truncate ${n.read ? 'opacity-70 dark:opacity-50' : ''}`}>
                               {n.title}
                             </p>
-                            <p className="text-xs text-slate-500 line-clamp-2 mt-0.5">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
                               {n.message}
                             </p>
-                            <p className="text-[10px] text-slate-400 mt-2">
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2">
                               {n.createdAt?.toDate ? new Intl.DateTimeFormat('pt-BR', {
                                 hour: '2-digit',
                                 minute: '2-digit',
@@ -155,7 +157,7 @@ export default function NotificationCenter() {
                           {!n.read && (
                             <button 
                               onClick={() => markAsRead(n.id)}
-                              className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
+                              className="p-1.5 text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-lg transition-colors"
                               title="Marcar como lida"
                             >
                               <Check className="w-3.5 h-3.5" />
@@ -163,7 +165,7 @@ export default function NotificationCenter() {
                           )}
                           <button 
                             onClick={() => deleteNotification(n.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
                             title="Excluir"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -174,10 +176,10 @@ export default function NotificationCenter() {
                   </div>
                 ) : (
                   <div className="p-12 text-center">
-                    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                      <Bell className="w-6 h-6 text-slate-300" />
+                    <div className="w-12 h-12 bg-slate-50 dark:bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <Bell className="w-6 h-6 text-slate-300 dark:text-slate-700" />
                     </div>
-                    <p className="text-sm text-slate-400 italic">Nenhuma notificação por aqui.</p>
+                    <p className="text-sm text-slate-400 dark:text-slate-500 italic">Nenhuma notificação por aqui.</p>
                   </div>
                 )}
               </div>

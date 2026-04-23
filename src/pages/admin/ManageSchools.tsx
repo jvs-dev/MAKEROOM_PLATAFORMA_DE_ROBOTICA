@@ -93,57 +93,57 @@ export default function ManageSchools() {
     <div className="space-y-8">
       <header className="flex items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Escolas Parceiras 🏫</h1>
-          <p className="text-slate-500">Gerencie contas institucionais e escolas parceiras.</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">Escolas Parceiras 🏫</h1>
+          <p className="text-slate-500 dark:text-slate-400">Gerencie contas institucionais e escolas parceiras.</p>
         </div>
         <button 
           onClick={() => handleOpenModal()}
-          className="bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg shadow-brand-100 flex items-center gap-2"
+          className="bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center gap-2"
         >
           <Plus className="w-5 h-5" /> Nova Escola
         </button>
       </header>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-        <table className="w-full text-left border-collapse">
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 overflow-x-auto transition-colors">
+        <table className="w-full text-left border-collapse min-w-[600px]">
           <thead>
-            <tr className="bg-slate-50 border-b border-slate-100">
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Escola</th>
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Administradores</th>
-              <th className="p-6 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Ações</th>
+            <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Escola</th>
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Administradores</th>
+              <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Ações</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50">
+          <tbody className="divide-y divide-slate-50 dark:divide-white/5">
             {schools.map((school) => (
-              <tr key={school.id} className="hover:bg-slate-50 transition-colors group">
+              <tr key={school.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                 <td className="p-6">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-                      <School className="w-5 h-5 text-indigo-500" />
+                    <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 rounded-xl flex items-center justify-center transition-colors">
+                      <School className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900">{school.name}</p>
-                      <p className="text-xs text-slate-400">ID: {school.id.slice(-6)}</p>
+                      <p className="font-bold text-slate-900 dark:text-white">{school.name}</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">ID: {school.id.slice(-6)}</p>
                     </div>
                   </div>
                 </td>
                 <td className="p-6">
                   <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-slate-400" />
-                    <span className="text-sm text-slate-600 font-medium">{school.adminIds.length} Admins</span>
+                    <Users className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                    <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">{school.adminIds.length} Admins</span>
                   </div>
                 </td>
                 <td className="p-6 text-right">
                   <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <button 
                       onClick={() => handleOpenModal(school)}
-                      className="p-2 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                      className="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-all"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button 
                       onClick={() => setDeleteConfirmation(school)}
-                      className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      className="p-2 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-all"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -154,39 +154,39 @@ export default function ManageSchools() {
           </tbody>
         </table>
         {schools.length === 0 && !isLoading && (
-          <div className="p-12 text-center text-slate-400 italic">Nenhuma escola cadastrada.</div>
+          <div className="p-12 text-center text-slate-400 dark:text-slate-500 italic">Nenhuma escola cadastrada.</div>
         )}
       </div>
 
       {deleteConfirmation && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md w-full">
+          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl max-w-md w-full border border-slate-100 dark:border-white/10 transition-colors">
             <div className="flex items-center gap-4 text-red-500 mb-6">
-              <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center">
+              <div className="w-12 h-12 bg-red-50 dark:bg-red-500/20 rounded-2xl flex items-center justify-center">
                 <Trash2 className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-slate-900">Excluir Escola?</h2>
-                <p className="text-sm text-slate-500">Esta ação não pode ser desfeita.</p>
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Excluir Escola?</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Esta ação não pode ser desfeita.</p>
               </div>
             </div>
             
-            <p className="text-slate-600 mb-8">
-              Você está prestes a excluir a escola <span className="font-bold text-slate-900">"{deleteConfirmation.name}"</span>.
+            <p className="text-slate-600 dark:text-slate-400 mb-8">
+              Você está prestes a excluir a escola <span className="font-bold text-slate-900 dark:text-white">"{deleteConfirmation.name}"</span>.
             </p>
             
             <div className="flex gap-4">
               <button 
                 disabled={isDeleting}
                 onClick={() => setDeleteConfirmation(null)}
-                className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-colors disabled:opacity-50"
+                className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button 
                 disabled={isDeleting}
                 onClick={handleDelete}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-red-100 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-red-100 dark:shadow-none flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isDeleting ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
@@ -201,40 +201,40 @@ export default function ManageSchools() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-white/10 transition-colors">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-slate-900">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                 {editingSchool ? 'Editar Escola' : 'Nova Escola'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Nome da Escola</label>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome da Escola</label>
                 <input 
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                  className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
                   placeholder="Ex: Colégio Maker"
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Emails dos Administradores (Opcional)</label>
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Emails dos Administradores (Opcional)</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
                   <input 
                     value={adminEmailsStr}
                     onChange={(e) => setAdminEmailsStr(e.target.value)}
-                    className="w-full p-3 pl-10 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                    className="w-full p-3 pl-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
                     placeholder="admin1@escola.com, admin2@escola.com"
                   />
                 </div>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                   Adicione os e-mails dos usuários que terão permissão para gerenciar esta escola, separados por vírgula.
                 </p>
               </div>
@@ -243,13 +243,13 @@ export default function ManageSchools() {
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-colors"
+                  className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 flex items-center justify-center gap-2"
+                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center justify-center gap-2"
                 >
                   <Save className="w-5 h-5" /> Salvar Escola
                 </button>

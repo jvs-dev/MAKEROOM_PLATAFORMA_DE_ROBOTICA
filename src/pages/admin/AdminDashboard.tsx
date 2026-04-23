@@ -16,7 +16,9 @@ import {
   Loader2,
   AlertCircle,
   Award,
-  Trophy
+  Trophy,
+  Star,
+  Megaphone
 } from 'lucide-react';
 
 interface RecentActivity {
@@ -303,23 +305,25 @@ export default function AdminDashboard() {
     { name: 'Gerenciar Pedidos', path: '/admin/orders', icon: Package, color: 'bg-orange-500', description: 'Controle as entregas da loja.' },
     { name: 'Gerenciar Usuários', path: '/admin/users', icon: Users, color: 'bg-emerald-500', description: 'Promova alunos e gerencie permissões.' },
     { name: 'Contas Institucionais', path: '/admin/schools', icon: School, color: 'bg-indigo-500', description: 'Gerencie escolas parceiras.' },
+    { name: 'Prêmio Ranking', path: '/admin/rank-prize', icon: Star, color: 'bg-yellow-500', description: 'Configure o prêmio da temporada.' },
+    { name: 'Anúncios Home', path: '/admin/announcements', icon: Megaphone, color: 'bg-cyan-500', description: 'Gerencie os banners rotativos da home.' },
     { name: 'Banco de Projetos', path: '/admin/notes', icon: FileText, color: 'bg-rose-500', description: 'Notas e anotações internas.' },
   ];
 
   return (
     <div className="space-y-8">
-      <header className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Painel Administrativo 🛠️</h1>
-          <p className="text-slate-500">Gerencie todo o ecossistema Makeroom em um só lugar.</p>
+      <header className="bg-white dark:bg-zinc-900 p-5 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 transition-colors">
+        <div className="flex-1 text-center md:text-left">
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-2">Painel Administrativo 🛠️</h1>
+          <p className="text-sm md:text-base text-slate-500 dark:text-slate-400">Gerencie todo o ecossistema Makeroom em um só lugar.</p>
         </div>
-        <div className="bg-slate-900 p-4 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 bg-brand-500 rounded-xl flex items-center justify-center shadow-md shadow-brand-100">
+        <div className="w-full md:w-auto bg-slate-900 dark:bg-zinc-800 p-4 rounded-xl md:rounded-2xl flex items-center justify-center md:justify-start gap-4 transition-colors min-h-[44px]">
+          <div className="w-12 h-12 bg-brand-500 rounded-xl flex items-center justify-center shadow-md shadow-brand-100 dark:shadow-none">
             <LayoutDashboard className="text-white w-6 h-6" />
           </div>
           <div>
-            <p className="text-xs text-brand-400 font-bold uppercase tracking-wider">Status</p>
-            <p className="text-white font-bold">Sistema Online</p>
+            <p className="text-xs text-brand-400 font-bold uppercase tracking-wider leading-none mb-1">Status</p>
+            <p className="text-white font-bold leading-none">Sistema Online</p>
           </div>
         </div>
       </header>
@@ -334,10 +338,10 @@ export default function AdminDashboard() {
             <Link 
               key={module.path} 
               to={module.path}
-              className={`bg-white p-6 rounded-3xl shadow-sm border transition-all duration-200 group flex flex-col relative overflow-hidden ${
+              className={`bg-white dark:bg-zinc-900 p-6 rounded-3xl shadow-sm border transition-all duration-200 group flex flex-col relative overflow-hidden ${
                 hasPending 
-                  ? 'border-amber-500 ring-2 ring-amber-200 shadow-xl shadow-amber-100 animate-pulse-subtle bg-gradient-to-br from-white to-amber-50/30' 
-                  : 'border-slate-100 hover:shadow-md'
+                  ? 'border-amber-500 ring-2 ring-amber-200 shadow-xl shadow-amber-100 dark:shadow-none animate-pulse-subtle bg-gradient-to-br from-white to-amber-50/30' 
+                  : 'border-slate-100 dark:border-white/10 hover:shadow-md'
               }`}
             >
               {hasPending && (
@@ -345,11 +349,11 @@ export default function AdminDashboard() {
                   {pendingOrders.length} Pendentes
                 </div>
               )}
-              <div className={`w-12 h-12 ${module.color} rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-${module.color.split('-')[1]}-100 group-hover:scale-110 transition-transform duration-200`}>
+              <div className={`w-12 h-12 ${module.color} rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-${module.color.split('-')[1]}-100 dark:shadow-none group-hover:scale-110 transition-transform duration-200`}>
                 <Icon className="text-white w-6 h-6" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">{module.name}</h3>
-              <p className="text-slate-500 text-sm mb-6 flex-1">{module.description}</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{module.name}</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 flex-1">{module.description}</p>
               <div className={`flex items-center font-bold text-sm gap-2 transition-opacity duration-200 ${
                 hasPending ? 'text-amber-600 opacity-100' : 'text-brand-600 opacity-0 group-hover:opacity-100'
               }`}>
@@ -361,8 +365,8 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-          <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+        <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 transition-colors">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-3">
             <Users className="w-6 h-6 text-brand-500" /> Atividade Recente
           </h2>
           <div className="space-y-4">
@@ -372,17 +376,17 @@ export default function AdminDashboard() {
               </div>
             ) : recentActivity.length > 0 ? (
               recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
-                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+                <div key={activity.id} className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                  <div className="w-10 h-10 bg-white dark:bg-white/10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
                     {activity.type === 'user' && <Users className="w-5 h-5 text-emerald-500" />}
                     {activity.type === 'submission' && <CheckSquare className="w-5 h-5 text-purple-500" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <p className="text-sm font-bold text-slate-900">{activity.title}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{activity.time}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white">{activity.title}</p>
+                      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider whitespace-nowrap">{activity.time}</p>
                     </div>
-                    <p className="text-xs text-slate-500 leading-relaxed">{activity.description}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{activity.description}</p>
                   </div>
                 </div>
               ))
@@ -392,8 +396,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-          <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+        <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 transition-colors">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-3">
             <ShoppingBag className="w-6 h-6 text-brand-500" /> Atividade da Loja Maker
           </h2>
           <div className="space-y-4">
@@ -405,18 +409,18 @@ export default function AdminDashboard() {
               <div className="space-y-6">
                 {/* Recent Store Notifications */}
                 <div className="space-y-3">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notificações Recentes</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Notificações Recentes</p>
                   {orderActivities.map((activity) => (
-                    <div key={activity.id} className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition-colors">
-                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+                    <div key={activity.id} className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+                      <div className="w-10 h-10 bg-white dark:bg-white/10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
                         <ShoppingBag className="w-5 h-5 text-brand-500" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="text-sm font-bold text-slate-900">{activity.title}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{activity.time}</p>
+                          <p className="text-sm font-bold text-slate-900 dark:text-white">{activity.title}</p>
+                          <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider whitespace-nowrap">{activity.time}</p>
                         </div>
-                        <p className="text-xs text-slate-500 leading-relaxed">{activity.description}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{activity.description}</p>
                       </div>
                     </div>
                   ))}
@@ -424,20 +428,20 @@ export default function AdminDashboard() {
 
                 {/* Pending Actions */}
                 {pendingOrders.length > 0 && (
-                  <div className="space-y-3 pt-4 border-t border-slate-100">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ações Pendentes</p>
+                  <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Ações Pendentes</p>
                     {pendingOrders.map((order) => (
-                      <div key={order.id} className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50/50 border border-amber-100">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                      <div key={order.id} className="flex items-center gap-4 p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 transition-colors flex-wrap sm:flex-nowrap">
+                        <div className="w-10 h-10 bg-white dark:bg-white/10 rounded-xl flex items-center justify-center shadow-sm shrink-0">
                           <Package className="w-5 h-5 text-amber-500" />
                         </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-slate-900 truncate max-w-[150px]">{order.productNames.join(', ')}</p>
-                          <p className="text-xs text-slate-500">Para: {order.userName}</p>
+                        <div className="flex-1 min-w-[120px]">
+                          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{order.productNames.join(', ')}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Para: {order.userName}</p>
                         </div>
                         <Link 
                           to="/admin/orders"
-                          className="bg-amber-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors"
+                          className="w-full sm:w-auto bg-amber-500 text-white px-4 py-3 sm:py-1.5 rounded-lg text-xs font-bold hover:bg-amber-600 transition-colors text-center min-h-[44px] flex items-center justify-center"
                         >
                           Gerenciar
                         </Link>

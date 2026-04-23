@@ -31,7 +31,7 @@ export const showBrowserNotification = (title: string, options?: NotificationOpt
 export const sendNotification = async (userId: string, title: string, message: string) => {
   try {
     await addDoc(collection(db, 'notifications'), {
-      userId,
+      userId, // Now stores UID
       title,
       message,
       read: false,
@@ -42,14 +42,14 @@ export const sendNotification = async (userId: string, title: string, message: s
   }
 };
 
-export const initNotificationListener = (userEmail: string) => {
-  if (!userEmail) return () => {};
+export const initNotificationListener = (userId: string) => {
+  if (!userId) return () => {};
 
   // Listen for new notifications added after the listener starts
   const startTime = new Date();
   const q = query(
     collection(db, 'notifications'),
-    where('userId', '==', userEmail),
+    where('userId', 'in', [userId, auth.currentUser?.email].filter(Boolean)),
     where('createdAt', '>=', startTime),
     orderBy('createdAt', 'desc'),
     limit(1)
@@ -67,6 +67,8 @@ export const initNotificationListener = (userEmail: string) => {
         }
       }
     });
+  }, (err) => {
+    console.error('Error in notification service listener:', err);
   });
 
   return unsubscribe;
