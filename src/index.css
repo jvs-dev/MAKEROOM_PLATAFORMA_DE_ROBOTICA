@@ -1,5 +1,7 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @import "leaflet/dist/leaflet.css";
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Bebas+Neue&display=swap');
 
 @theme {
   --color-brand-50: #fff7ed;
@@ -7,12 +9,87 @@
   --color-brand-200: #fed7aa;
   --color-brand-300: #fdba74;
   --color-brand-400: #fb923c;
-  --color-brand-500: #FD9327;
+  --color-brand-500: #f97316; /* MakerRoom Orange */
   --color-brand-600: #ea580c;
   --color-brand-700: #c2410c;
   --color-brand-800: #9a3412;
   --color-brand-900: #7c2d12;
   --color-brand-950: #431407;
+
+  --color-deep-black: #050505;
+  --color-surface: rgba(255, 255, 255, 0.05);
+  
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Bebas Neue", cursive;
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 transition-colors duration-300;
+  }
+  
+  .dark body {
+    @apply bg-deep-black text-slate-100;
+  }
+
+  /* Global Scrollbar Customization */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-100 dark:bg-zinc-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-zinc-700 rounded-full border-[3px] border-solid border-slate-100 dark:border-zinc-900 transition-colors;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-brand-500 dark:bg-brand-500;
+  }
+
+  /* Firefox Support */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.slate.300') theme('colors.slate.100');
+  }
+
+  .dark * {
+    scrollbar-color: theme('colors.zinc.700') theme('colors.zinc.900');
+  }
+}
+
+@utility glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  
+  @variant dark {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+@utility glass-strong {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+
+  @variant dark {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+}
+
+@utility techno-gradient {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  
+  @variant dark {
+    background: linear-gradient(135deg, #050505 0%, #0a0a0a 100%);
+  }
 }
 
 @utility no-scrollbar {
@@ -25,34 +102,43 @@
 
 @utility custom-scrollbar {
   &::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
+    height: 5px;
   }
   &::-webkit-scrollbar-track {
     background: transparent;
   }
   &::-webkit-scrollbar-thumb {
-    background: #e2e8f0;
-    border-radius: 10px;
+    @apply bg-slate-400/20 dark:bg-white/10 rounded-full;
   }
   &::-webkit-scrollbar-thumb:hover {
-    background: #cbd5e1;
+    @apply bg-brand-500/50 dark:bg-brand-500/50;
   }
 }
 
-@keyframes bounce-subtle {
+@keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  50% { transform: translateY(-10px); }
 }
 
-.animate-bounce-subtle {
-  animation: bounce-subtle 2s ease-in-out infinite;
+.animate-float {
+  animation: float 5s ease-in-out infinite;
 }
 
-@keyframes pulse-subtle {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.85; }
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(249, 115, 22, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.4); }
 }
 
-.animate-pulse-subtle {
-  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+.animate-glow {
+  animation: glow 3s ease-in-out infinite;
+}
+
+@keyframes shimmer-border {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-shimmer-border {
+  animation: shimmer-border 4s linear infinite;
 }

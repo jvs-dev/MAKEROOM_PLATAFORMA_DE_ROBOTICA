@@ -22,9 +22,9 @@ export default function Toast({ message, type = 'success', onClose, duration = 5
   };
 
   const bgColors = {
-    success: 'bg-emerald-50 border-emerald-100',
-    error: 'bg-red-50 border-red-100',
-    info: 'bg-indigo-50 border-indigo-100'
+    success: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20',
+    error: 'bg-red-50 dark:bg-red-500/10 border-red-100 dark:border-red-500/20',
+    info: 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/20'
   };
 
   return (
@@ -35,7 +35,7 @@ export default function Toast({ message, type = 'success', onClose, duration = 5
       className={`fixed bottom-8 right-8 z-[100] flex items-center gap-3 px-6 py-4 rounded-2xl border shadow-xl ${bgColors[type]}`}
     >
       {icons[type]}
-      <p className="text-sm font-bold text-slate-800">{message}</p>
+      <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{message}</p>
       <button 
         onClick={onClose}
         className="ml-4 p-1 hover:bg-black/5 rounded-full transition-colors"
