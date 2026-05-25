@@ -16,8 +16,11 @@ dotenv.config();
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
 
-// Use the provided key if env is not set
-const ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN || 'APP_USR-5759807561711985-082700-d646978e83b51b826768cadb8c7a4ae3-1945286731';
+// Use environment variable and throw error if missing
+const ACCESS_TOKEN = process.env.MERCADO_PAGO_ACCESS_TOKEN;
+if (!ACCESS_TOKEN) {
+  throw new Error("MERCADO_PAGO_ACCESS_TOKEN is not set in environment variables");
+}
 
 const client = new MercadoPagoConfig({ 
   accessToken: ACCESS_TOKEN
@@ -161,6 +164,143 @@ app.post("/api/webhooks/mercadopago", async (req, res) => {
   } catch (error) {
     console.error('[API] Webhook Error:', error);
     res.sendStatus(500);
+  }
+});
+
+app.post("/api/admin/chat", async (req, res) => {
+  try {
+    const { messages } = req.body;
+    
+    // We import GoogleGenAI here to keep it localized, or at top
+    const { GoogleGenAI, Type } = await import("@google/genai");
+    
+    const API_KEY = process.env.GEMINI_API_KEY;
+    if (!API_KEY) {
+      return res.status(500).json({ error: 'GEMINI_API_KEY is not configured.' });
+    }
+    
+    const ai = new GoogleGenAI({
+      apiKey: API_KEY,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+
+    const createStoreItem = {
+      name: "createStoreItem",
+      description: "Creates a new item in the store (products collection). Only use when the user provides enough information like name, price, stock, and category. Ask for missing details if necessary.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING, description: "Name of the product" },
+          description: { type: Type.STRING, description: "Description of the product" },
+          price: { type: Type.NUMBER, description: "Price in points" },
+          stock: { type: Type.NUMBER, description: "Amount of items available in stock" },
+          category: { type: Type.STRING, description: "Category string (e.g. kits, materials)" }
+        },
+        required: ["name", "price", "stock", "category"]
+      }
+    };
+
+    const createLesson = {
+      name: "createLesson",
+      description: "Creates a new lesson. Requires title, description, content, category, and points.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          description: { type: Type.STRING },
+          content: { type: Type.STRING },
+          category: { type: Type.STRING },
+          points: { type: Type.NUMBER }
+        },
+        required: ["title", "description", "content", "category", "points"]
+      }
+    };
+
+    const createChallenge = {
+      name: "createChallenge",
+      description: "Creates a new challenge (quiz or activity). Se o usuário pedir um quiz e não enviar perguntas, você mesmo deve gerar uma lista rica de perguntas e respostas.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          description: { type: Type.STRING },
+          type: { type: Type.STRING, description: "Must be 'quiz' or 'activity'" },
+          points: { type: Type.NUMBER },
+          questions: {
+            type: Type.ARRAY,
+            description: "Array of questions for the quiz. Generate them if not provided.",
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                text: { type: Type.STRING, description: "The question text" },
+                options: { 
+                  type: Type.OBJECT, 
+                  properties: {
+                    A: { type: Type.STRING },
+                    B: { type: Type.STRING },
+                    C: { type: Type.STRING },
+                    D: { type: Type.STRING }
+                  },
+                  required: ["A", "B", "C", "D"]
+                },
+                correctAnswers: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: "Array of correct option letters, e.g. ['A']"
+                }
+              },
+              required: ["text", "options", "correctAnswers"]
+            }
+          }
+        },
+        required: ["title", "description", "type", "points"]
+      }
+    };
+
+    const createCourse = {
+      name: "createCourse",
+      description: "Creates a new course.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          description: { type: Type.STRING },
+          pointsReward: { type: Type.NUMBER }
+        },
+        required: ["title", "description", "pointsReward"]
+      }
+    };
+
+    const createAnnouncement = {
+      name: "createAnnouncement",
+      description: "Creates a new announcement banner for the home page.",
+      parameters: {
+        type: Type.OBJECT,
+        properties: {
+          imageUrl: { type: Type.STRING, description: "URL of the image" },
+          redirectUrl: { type: Type.STRING, description: "URL to redirect on click" },
+          isActive: { type: Type.BOOLEAN }
+        },
+        required: ["imageUrl", "redirectUrl", "isActive"]
+      }
+    };
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: messages,
+      config: {
+        systemInstruction: "Você é o Assistente Makeroom, um assistente AI prestativo e amigável para administradores. Você ajuda a criar configurações do site (como itens da loja, aulas, desafios, cursos, anúncios). Seja humano, simpático e conciso. Caso o usuário peça para criar algo e faltem parâmetros obrigatórios, pergunte de forma natural. IMPORTANTE: Se o usuário pedir para criar um quiz e não fornecer as perguntas, VOCÊ MESMO DEVE GERAR uma lista rica de perguntas e respostas com base no tema solicitado. Se tudo estiver correto, use a function call, confirmando que irá criar. Você está em fase Beta, então seja humilde quanto a erros.",
+        tools: [{ functionDeclarations: [createStoreItem, createLesson, createChallenge, createCourse, createAnnouncement] }]
+      }
+    });
+
+    const calls = response.functionCalls || [];
+    const text = response.text || "";
+
+    res.json({ text, functionCalls: calls });
+  } catch (error: any) {
+    console.error('[API] Gemini Error:', error);
+    res.status(500).json({ error: error?.message || 'Error communicating with AI' });
   }
 });
 

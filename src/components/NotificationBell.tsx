@@ -23,7 +23,7 @@ export default function NotificationBell() {
 
     const q = query(
       collection(db, 'notifications'),
-      where('userId', '==', auth.currentUser.email),
+      where('userId', 'in', [auth.currentUser.email, auth.currentUser.uid]),
       orderBy('createdAt', 'desc'),
       limit(10)
     );
@@ -33,7 +33,7 @@ export default function NotificationBell() {
       setNotifications(notifs);
       setUnreadCount(notifs.filter(n => !n.read).length);
     }, (err) => {
-      console.error('Error in notification snapshot:', err);
+      console.error('Error in notification bell listener:', err);
     });
 
     return () => unsubscribe();

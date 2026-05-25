@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, addDoc, serverTimestamp, query, where, setDoc, doc, Timestamp, updateDoc, increment } from 'firebase/firestore';
+import { collection, getDocs, addDoc, serverTimestamp, query, where, setDoc, doc, Timestamp, updateDoc, increment, onSnapshot } from 'firebase/firestore';
+import { awardPoints } from '../services/userService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Zap, CheckCircle, Clock, ChevronRight, Send, AlertCircle, X, RefreshCcw } from 'lucide-react';
@@ -68,7 +69,11 @@ export default function Challenges() {
     if (!isLoading && challenges.length > 0 && location.state?.challengeId) {
       const challenge = challenges.find(c => c.id === location.state.challengeId);
       if (challenge) {
-        setSelectedChallenge(challenge);
+        if (challenge.type === 'quiz') {
+          startQuiz(challenge);
+        } else {
+          setSelectedChallenge(challenge);
+        }
         // Clear state to prevent re-opening on refresh
         navigate(location.pathname, { replace: true, state: {} });
       }
@@ -83,51 +88,72 @@ export default function Challenges() {
   const fetchData = async () => {
     if (auth.currentUser && auth.currentUser.email) {
       try {
-        // Get challenges
-        const challengesSnapshot = await getDocs(collection(db, 'challenges'));
-        const challengesList = challengesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Challenge));
-        setChallenges(challengesList);
-
-        // Get user submissions
-        const submissionsQuery = query(collection(db, 'submissions'), where('userEmail', '==', auth.currentUser.email));
-        const submissionsSnapshot = await getDocs(submissionsQuery);
-        const submissionsList = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        
-        // Sort by createdAt descending to get the latest first
-        submissionsList.sort((a, b) => {
-          const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
-          const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
-          return timeB - timeA;
-        });
-
-        const submissionsMap: { [id: string]: Submission } = {};
-        submissionsList.forEach(data => {
-          // Only take the first (latest) one for each challenge
-          if (!submissionsMap[data.challengeId]) {
-            submissionsMap[data.challengeId] = data as Submission;
-          }
-        });
-        setSubmissions(submissionsMap);
-
-        // Get cooldowns
-        const cooldownsQuery = query(collection(db, 'quizCooldowns'), where('userId', '==', auth.currentUser.uid));
-        const cooldownsSnapshot = await getDocs(cooldownsQuery);
-        const cooldownsMap: { [id: string]: QuizCooldown } = {};
-        cooldownsSnapshot.forEach(doc => {
-          const data = doc.data() as QuizCooldown;
-          cooldownsMap[data.challengeId] = { id: doc.id, ...data };
-        });
-        setCooldowns(cooldownsMap);
+        // 1. Get challenges (one-time)
+        try {
+          const challengesSnapshot = await getDocs(collection(db, 'challenges'));
+          const challengesList = challengesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Challenge));
+          setChallenges(challengesList);
+        } catch (err) {
+          handleFirestoreError(err, OperationType.LIST, 'challenges');
+        }
       } catch (err) {
-        handleFirestoreError(err, OperationType.LIST, 'challenges/submissions/cooldowns');
+        handleFirestoreError(err, OperationType.LIST, 'challenges/setup');
       }
     }
-    setIsLoading(false);
   };
 
   useEffect(() => {
     fetchData();
-  }, []);
+
+    if (!auth.currentUser) {
+      setIsLoading(false);
+      return;
+    }
+
+    const uid = auth.currentUser.uid;
+
+    // Listen to Submissions
+    const submissionsQuery = query(collection(db, 'submissions'), where('userId', '==', uid));
+    const unsubscribeSubmissions = onSnapshot(submissionsQuery, (snapshot) => {
+      const submissionsList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      
+      // Sort by createdAt descending to get the latest first
+      submissionsList.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+        const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+        return timeB - timeA;
+      });
+
+      const submissionsMap: { [id: string]: Submission } = {};
+      submissionsList.forEach(data => {
+        if (!submissionsMap[data.challengeId]) {
+          submissionsMap[data.challengeId] = data as Submission;
+        }
+      });
+      setSubmissions(submissionsMap);
+      setIsLoading(false);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'submissions');
+    });
+
+    // Listen to Cooldowns
+    const cooldownsQuery = query(collection(db, 'quizCooldowns'), where('userId', '==', uid));
+    const unsubscribeCooldowns = onSnapshot(cooldownsQuery, (snapshot) => {
+      const cooldownsMap: { [id: string]: QuizCooldown } = {};
+      snapshot.forEach(doc => {
+        const data = doc.data() as QuizCooldown;
+        cooldownsMap[data.challengeId] = { id: doc.id, ...data };
+      });
+      setCooldowns(cooldownsMap);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, 'quizCooldowns');
+    });
+
+    return () => {
+      unsubscribeSubmissions();
+      unsubscribeCooldowns();
+    };
+  }, [auth.currentUser]);
 
   const applyPenalty = async (challengeId: string) => {
     if (!auth.currentUser) return;
@@ -223,7 +249,7 @@ export default function Challenges() {
     
     // Check if all questions are answered
     const questions = selectedChallenge.questions || [];
-    if (questions.some(q => !activeQuiz.answers[q.id] || activeQuiz.answers[q.id].length === 0)) {
+    if (questions.some((q, idx) => !activeQuiz.answers[q.id || `q-${idx}`] || activeQuiz.answers[q.id || `q-${idx}`].length === 0)) {
       showToast('Por favor, responda todas as perguntas.', 'warning');
       return;
     }
@@ -232,8 +258,8 @@ export default function Challenges() {
     try {
       // Calculate grade
       let correctCount = 0;
-      questions.forEach(q => {
-        const userAnswers = activeQuiz.answers[q.id] || [];
+      questions.forEach((q, idx) => {
+        const userAnswers = activeQuiz.answers[q.id || `q-${idx}`] || [];
         const correctAnswers = q.correctAnswers || [];
         if (userAnswers.length === correctAnswers.length && userAnswers.every(a => correctAnswers.includes(a))) {
           correctCount++;
@@ -253,11 +279,8 @@ export default function Challenges() {
         createdAt: serverTimestamp(),
       });
 
-      // Update user points in their profile
-      const userRef = doc(db, 'users', auth.currentUser.email);
-      await updateDoc(userRef, {
-        points: increment(earnedPoints)
-      });
+      // Update user points and sync profile automatically via awardPoints service
+      await awardPoints(auth.currentUser.uid, auth.currentUser.email, earnedPoints);
 
       // Set cooldown if grade is less than 100%
       if (grade < 100) {
@@ -335,25 +358,28 @@ export default function Challenges() {
 
   return (
     <div className="space-y-8">
-      <header className="bg-white p-4 md:p-8 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
+      <header className="bg-white dark:bg-zinc-900 p-4 md:p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 transition-colors">
         <div className="flex-1 text-center md:text-left">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-1 md:mb-2">Desafios Maker ⚡</h1>
-          <p className="text-slate-500 text-sm md:text-base">Supere limites e ganhe pontos para subir no ranking.</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-1 md:mb-2 flex items-center justify-center md:justify-start gap-3">
+            <Zap className="text-brand-500" size={32} />
+            Desafios Maker
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base">Supere limites e ganhe pontos para subir no ranking.</p>
         </div>
-        <div className="bg-brand-50 p-3 md:p-4 rounded-2xl flex items-center gap-3 md:gap-4">
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-brand-500 rounded-xl flex items-center justify-center shadow-md shadow-brand-100">
+        <div className="bg-brand-50 dark:bg-brand-500/10 p-3 md:p-4 rounded-2xl flex items-center gap-3 md:gap-4 transition-colors">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-brand-500 rounded-xl flex items-center justify-center shadow-md shadow-brand-100 dark:shadow-none">
             <Zap className="text-white w-5 h-5 md:w-6 md:h-6" />
           </div>
           <div>
-            <p className="text-[10px] text-brand-600 font-bold uppercase tracking-wider">Concluídos</p>
-            <p className="text-slate-900 font-bold text-sm md:text-base">{Object.keys(submissions).length} / {challenges.length} Desafios</p>
+            <p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">Concluídos</p>
+            <p className="text-slate-900 dark:text-white font-bold text-sm md:text-base">{Object.keys(submissions).length} / {challenges.length} Desafios</p>
           </div>
         </div>
       </header>
 
       {availableChallenges.length > 0 && (
         <section className="space-y-6">
-          <h2 className="text-xl font-bold text-slate-900 px-2">Desafios Disponíveis</h2>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white px-2">Desafios Disponíveis</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {availableChallenges.map((challenge) => {
               const cooldown = cooldowns[challenge.id];
@@ -367,40 +393,40 @@ export default function Challenges() {
                 : 0;
 
               return (
-                <div key={challenge.id} className={`bg-white p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 hover:shadow-md transition-all duration-200 flex flex-col ${isOnCooldown ? 'opacity-75' : ''}`}>
+                <div key={challenge.id} className={`bg-white dark:bg-zinc-900 p-4 md:p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 hover:shadow-md transition-all duration-200 flex flex-col ${isOnCooldown ? 'opacity-75' : ''}`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex gap-2">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                        challenge.type === 'quiz' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${
+                        challenge.type === 'quiz' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400'
                       }`}>
                         {challenge.type === 'quiz' ? 'Quiz' : 'Atividade'}
                       </span>
                       {isOnCooldown && (
-                        <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-red-50 text-red-600 flex items-center gap-1">
+                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 flex items-center gap-1">
                           <Clock className="w-3 h-3" /> Bloqueado
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 text-brand-600 font-bold text-sm">
+                    <div className="flex items-center gap-1 text-brand-600 dark:text-brand-400 font-bold text-sm">
                       <Zap className="w-4 h-4 fill-brand-500" />
                       {challenge.points} pts
                     </div>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">{challenge.title}</h3>
-                  <p className="text-slate-500 text-sm mb-6 line-clamp-2">{challenge.description}</p>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{challenge.title}</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 line-clamp-2">{challenge.description}</p>
                   
                   {isOnCooldown && (
-                    <div className="mb-4 p-3 bg-red-50 rounded-xl border border-red-100">
-                      <p className="text-xs text-red-600 font-medium flex items-center gap-2">
+                    <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-100 dark:border-red-500/20">
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
                         Tente novamente em {remainingMinutes} min
                       </p>
                     </div>
                   )}
 
-                  <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-slate-400 text-xs">
+                  <div className="mt-auto pt-6 border-t border-slate-50 dark:border-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-xs">
                       <Clock className="w-4 h-4" />
                       <span>{isOnCooldown ? 'Aguarde o cooldown' : 'Disponível'}</span>
                     </div>
@@ -408,10 +434,10 @@ export default function Challenges() {
                     <button 
                       onClick={() => challenge.type === 'quiz' ? startQuiz(challenge) : setSelectedChallenge(challenge)}
                       disabled={isOnCooldown}
-                      className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 ${
+                      className={`px-4 py-3 md:py-2 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2 min-h-[44px] ${
                         isOnCooldown 
-                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                          : 'bg-slate-900 text-white hover:bg-slate-800'
+                          ? 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 cursor-not-allowed' 
+                          : 'bg-slate-900 dark:bg-brand-500 text-white hover:bg-slate-800 dark:hover:bg-brand-600'
                       }`}
                     >
                       {isOnCooldown ? 'Bloqueado' : 'Participar'} <ChevronRight className="w-4 h-4" />
@@ -426,7 +452,10 @@ export default function Challenges() {
 
       {completedChallenges.length > 0 && (
         <section className="space-y-6">
-          <h2 className="text-xl font-bold text-slate-900 px-2">Desafios Concluídos 🎉</h2>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white px-2 flex items-center gap-2">
+            <CheckCircle className="text-green-500" size={24} />
+            Desafios Concluídos
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {completedChallenges.map((challenge) => {
               const submission = submissions[challenge.id];
@@ -446,47 +475,47 @@ export default function Challenges() {
 
               return (
                 <div key={challenge.id} className={`p-4 md:p-6 rounded-3xl shadow-sm border transition-all duration-200 flex flex-col ${
-                  isPerfect ? 'bg-emerald-50/30 border-emerald-100' : 'bg-white border-slate-100'
+                  isPerfect ? 'bg-emerald-50/30 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20' : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-white/10'
                 } ${isOnCooldown ? 'opacity-75' : ''}`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex gap-2">
                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                        challenge.type === 'quiz' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                        challenge.type === 'quiz' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400'
                       }`}>
                         {challenge.type === 'quiz' ? 'Quiz' : 'Atividade'}
                       </span>
-                      <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-50 text-emerald-600 flex items-center gap-1">
+                      <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                         <CheckCircle className="w-3 h-3" /> Concluído
                       </span>
                     </div>
-                    <div className="flex items-center gap-1 text-brand-600 font-bold text-sm">
+                    <div className="flex items-center gap-1 text-brand-600 dark:text-brand-400 font-bold text-sm">
                       <Zap className="w-4 h-4 fill-brand-500" />
                       {isGraded ? submission.earnedPoints : challenge.points} pts
                     </div>
                   </div>
 
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">{challenge.title}</h3>
-                  <p className="text-slate-500 text-sm mb-6 line-clamp-2">{challenge.description}</p>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{challenge.title}</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mb-6 line-clamp-2">{challenge.description}</p>
                   
                   {isOnCooldown && (
-                    <div className="mb-4 p-3 bg-red-50 rounded-xl border border-red-100">
-                      <p className="text-xs text-red-600 font-medium flex items-center gap-2">
+                    <div className="mb-4 p-3 bg-red-50 dark:bg-red-500/10 rounded-xl border border-red-100 dark:border-red-500/20">
+                      <p className="text-xs text-red-600 dark:text-red-400 font-medium flex items-center gap-2">
                         <AlertCircle className="w-4 h-4" />
                         Tente novamente em {remainingMinutes} min
                       </p>
                     </div>
                   )}
 
-                  <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
+                  <div className="mt-auto pt-6 border-t border-slate-50 dark:border-white/5 flex items-center justify-between">
                     <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                      <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
                         <CheckCircle className="w-4 h-4" />
                         {isGraded ? `Nota: ${submission.grade}%` : 'Enviado'}
                       </div>
                       {challenge.type === 'quiz' && isGraded && (
                         <button 
                           onClick={() => setReviewQuiz({ challenge, submission })}
-                          className="text-[10px] font-bold text-brand-500 hover:text-brand-600 flex items-center gap-1 uppercase tracking-wider"
+                          className="text-[10px] font-bold text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 flex items-center gap-1 uppercase tracking-wider"
                         >
                           Ver Revisão <ChevronRight className="w-3 h-3" />
                         </button>
@@ -496,7 +525,7 @@ export default function Challenges() {
                     {(!isPerfect && !isOnCooldown) && (
                       <button 
                         onClick={() => challenge.type === 'quiz' ? startQuiz(challenge) : setSelectedChallenge(challenge)}
-                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-900 text-white hover:bg-slate-800 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-slate-900 dark:bg-brand-500 text-white hover:bg-slate-800 transition-colors flex items-center gap-2"
                       >
                         Refazer <RefreshCcw className="w-4 h-4" />
                       </button>
@@ -534,32 +563,32 @@ export default function Challenges() {
 
       {/* Start Quiz Confirmation Modal */}
       {startConfirmation && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[110] flex items-center justify-center p-4">
           <div 
-            className="bg-white p-8 rounded-[32px] shadow-2xl max-w-md w-full border border-slate-100"
+            className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] shadow-2xl max-w-md w-full border border-slate-100 dark:border-white/10 transition-colors"
           >
-              <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                <AlertCircle className="w-8 h-8 text-amber-500" />
+              <div className="w-16 h-16 bg-amber-50 dark:bg-amber-500/20 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <AlertCircle className="w-8 h-8 text-amber-500 dark:text-amber-400" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 text-center mb-4">Iniciar Quiz?</h2>
-              <div className="space-y-4 text-slate-600 text-center mb-8">
-                <p className="font-medium">
-                  ATENÇÃO: Ao iniciar o quiz, você <span className="text-red-600 font-bold">NÃO</span> poderá fechar a janela ou trocar de página.
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-4">Iniciar Quiz?</h2>
+              <div className="space-y-4 text-slate-600 dark:text-slate-400 text-center mb-8">
+                <p className="font-medium text-sm md:text-base leading-relaxed">
+                  ATENÇÃO: Ao iniciar o quiz, você <span className="text-red-600 dark:text-red-400 font-bold">NÃO</span> poderá fechar a janela ou trocar de página.
                 </p>
-                <p className="text-sm">
+                <p className="text-xs md:text-sm text-slate-500 dark:text-slate-500">
                   Se você sair ou minimizar a página, perderá a tentativa e só poderá acessar novamente após 15 minutos.
                 </p>
               </div>
               <div className="flex gap-4">
                 <button 
                   onClick={() => setStartConfirmation(null)}
-                  className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
+                  className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button 
                   onClick={confirmStartQuiz}
-                  className="flex-1 px-6 py-4 rounded-2xl bg-brand-500 text-white font-bold hover:bg-brand-600 transition-colors shadow-lg shadow-brand-100"
+                  className="flex-1 px-6 py-4 rounded-2xl bg-brand-500 text-white font-bold hover:bg-brand-600 transition-colors shadow-lg shadow-brand-100 dark:shadow-none"
                 >
                   Iniciar Agora
                 </button>
@@ -570,30 +599,30 @@ export default function Challenges() {
 
       {/* Cancel Quiz Confirmation Modal */}
       {cancelConfirmation && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[70] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[120] flex items-center justify-center p-4">
           <div 
-            className="bg-white p-8 rounded-[32px] shadow-2xl max-w-md w-full border border-slate-100"
+            className="bg-white dark:bg-zinc-900 p-8 rounded-[32px] shadow-2xl max-w-md w-full border border-slate-100 dark:border-white/10 transition-colors"
           >
-              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mb-6 mx-auto">
-                <AlertCircle className="w-8 h-8 text-red-500" />
+              <div className="w-16 h-16 bg-red-50 dark:bg-red-500/20 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <AlertCircle className="w-8 h-8 text-red-500 dark:text-red-400" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 text-center mb-4">Sair do Quiz?</h2>
-              <div className="space-y-4 text-slate-600 text-center mb-8">
-                <p className="font-medium">
-                  Se você sair agora, perderá esta tentativa e terá que esperar <span className="text-red-600 font-bold">15 minutos</span> para tentar novamente.
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-white text-center mb-4">Sair do Quiz?</h2>
+              <div className="space-y-4 text-slate-600 dark:text-slate-400 text-center mb-8">
+                <p className="font-medium text-sm md:text-base leading-relaxed">
+                  Se você sair agora, perderá esta tentativa e terá que esperar <span className="text-red-600 dark:text-red-400 font-bold">15 minutos</span> para tentar novamente.
                 </p>
                 <p className="text-sm">Deseja realmente sair?</p>
               </div>
               <div className="flex gap-4">
                 <button 
                   onClick={() => setCancelConfirmation(null)}
-                  className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
+                  className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
                   Continuar Quiz
                 </button>
                 <button 
                   onClick={() => applyPenalty(cancelConfirmation)}
-                  className="flex-1 px-6 py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-100"
+                  className="flex-1 px-6 py-4 rounded-2xl bg-red-500 text-white font-bold hover:bg-red-600 transition-colors shadow-lg shadow-red-100 dark:shadow-none"
                 >
                   Sair e Bloquear
                 </button>
@@ -604,18 +633,18 @@ export default function Challenges() {
 
       {/* Review Quiz Modal */}
       {reviewQuiz && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[90] flex items-center justify-center p-4">
           <div 
-            className="bg-white p-8 rounded-[32px] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100"
+            className="bg-white dark:bg-zinc-900 p-6 md:p-10 rounded-[32px] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-white/10 transition-colors"
           >
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Revisão: {reviewQuiz.challenge.title}</h2>
-                  <p className="text-slate-500 font-medium">Sua nota: <span className="text-brand-600 font-bold">{reviewQuiz.submission.grade}</span></p>
+                  <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Revisão: {reviewQuiz.challenge.title}</h2>
+                  <p className="text-slate-500 dark:text-slate-400 font-medium">Sua nota: <span className="text-brand-600 dark:text-brand-400 font-bold">{reviewQuiz.submission.grade}%</span></p>
                 </div>
                 <button 
                   onClick={() => setReviewQuiz(null)}
-                  className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+                  className="w-10 h-10 md:w-12 md:h-12 bg-slate-50 dark:bg-white/5 rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -623,19 +652,20 @@ export default function Challenges() {
 
               <div className="space-y-10 mb-8">
                 {reviewQuiz.challenge.questions?.map((q, idx) => {
-                  const userAnswers = reviewQuiz.submission.answers?.[q.id] || [];
+                  const qId = q.id || `q-${idx}`;
+                  const userAnswers = reviewQuiz.submission.answers?.[qId] || [];
                   const correctAnswers = q.correctAnswers || [];
                   const isCorrect = userAnswers.length === correctAnswers.length && userAnswers.every(a => correctAnswers.includes(a));
 
                   return (
-                    <div key={q.id} className="space-y-4">
+                    <div key={q.id || `q-${idx}`} className="space-y-4">
                       <div className="flex items-start gap-3">
                         <div className={`w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center font-bold ${
                           isCorrect ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
                         }`}>
                           {idx + 1}
                         </div>
-                        <p className="font-bold text-slate-900 pt-1">{q.text}</p>
+                        <p className="font-bold text-slate-900 dark:text-white pt-1">{q.text}</p>
                       </div>
 
                       <div className="grid grid-cols-1 gap-3 pl-11">
@@ -643,14 +673,14 @@ export default function Challenges() {
                           const isUserSelected = userAnswers.includes(opt);
                           const isCorrectOption = correctAnswers.includes(opt);
                           
-                          let bgClass = 'bg-slate-50 border-slate-100 text-slate-600';
+                          let bgClass = 'bg-slate-50 dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-400';
                           let icon = null;
 
                           if (isCorrectOption) {
-                            bgClass = 'bg-emerald-50 border-emerald-200 text-emerald-700 ring-2 ring-emerald-500/20';
+                            bgClass = 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/20';
                             icon = <CheckCircle className="w-4 h-4 text-emerald-500" />;
                           } else if (isUserSelected && !isCorrectOption) {
-                            bgClass = 'bg-red-50 border-red-200 text-red-700 ring-2 ring-red-500/20';
+                            bgClass = 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/20 text-red-700 dark:text-red-300 ring-2 ring-red-500/20';
                             icon = <AlertCircle className="w-4 h-4 text-red-500" />;
                           }
 
@@ -662,7 +692,7 @@ export default function Challenges() {
                               <div className="flex items-center gap-4">
                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${
                                   isCorrectOption ? 'bg-emerald-500 text-white' : 
-                                  isUserSelected ? 'bg-red-500 text-white' : 'bg-white text-slate-400'
+                                  isUserSelected ? 'bg-red-500 text-white' : 'bg-white dark:bg-zinc-800 text-slate-400 dark:text-slate-600'
                                 }`}>
                                   {opt}
                                 </div>
@@ -676,14 +706,14 @@ export default function Challenges() {
                       
                       {!isCorrect && (
                         <div className="pl-11">
-                          <p className="text-xs font-bold text-red-500 uppercase tracking-widest bg-red-50 px-3 py-1 rounded-full inline-block">
+                          <p className="text-[10px] font-black text-red-500 uppercase tracking-widest bg-red-50 dark:bg-red-500/10 px-3 py-1 rounded-full inline-block">
                             Resposta Incorreta
                           </p>
                         </div>
                       )}
                       {isCorrect && (
                         <div className="pl-11">
-                          <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest bg-emerald-50 px-3 py-1 rounded-full inline-block">
+                          <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1 rounded-full inline-block">
                             Resposta Correta
                           </p>
                         </div>
@@ -695,7 +725,7 @@ export default function Challenges() {
 
               <button 
                 onClick={() => setReviewQuiz(null)}
-                className="w-full bg-slate-900 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                className="w-full bg-slate-900 dark:bg-brand-500 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 dark:hover:bg-brand-600 transition-all shadow-lg dark:shadow-none"
               >
                 Fechar Revisão
               </button>
@@ -705,12 +735,23 @@ export default function Challenges() {
 
       {/* Submission Modal */}
       {selectedChallenge && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className={`fixed inset-0 z-[100] flex items-center justify-center transition-all ${
+          selectedChallenge.type === 'quiz' 
+            ? 'bg-white dark:bg-zinc-950' 
+            : 'bg-slate-900/40 backdrop-blur-sm p-4'
+        }`}>
           <div 
-            className="bg-white p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            className={`overflow-y-auto transition-all ${
+              selectedChallenge.type === 'quiz'
+                ? 'w-full h-full flex flex-col items-center p-6 md:p-12'
+                : 'bg-white dark:bg-zinc-900 p-8 rounded-[32px] shadow-2xl max-w-2xl w-full max-h-[90vh] border border-slate-100 dark:border-white/10'
+            }`}
           >
+            <div className={`${selectedChallenge.type === 'quiz' ? 'w-full max-w-3xl' : 'w-full'}`}>
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">{selectedChallenge.title}</h2>
+                <h2 className={`text-2xl font-bold ${selectedChallenge.type === 'quiz' ? 'text-brand-600 dark:text-brand-400' : 'text-slate-900 dark:text-white'}`}>
+                  {selectedChallenge.title}
+                </h2>
                 <button 
                   onClick={() => {
                     if (activeQuiz) {
@@ -719,86 +760,88 @@ export default function Challenges() {
                       setSelectedChallenge(null);
                     }
                   }} 
-                  className="text-slate-400 hover:text-slate-600"
+                  className="p-2 bg-slate-100 dark:bg-white/5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
             
-            <p className="text-slate-500 mb-6">{selectedChallenge.description}</p>
-            
-            {selectedChallenge.type === 'activity' ? (
-              <div className="space-y-4 mb-8">
-                <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider">
-                  Sua Resposta / Link do Projeto
-                </label>
-                <textarea 
-                  value={submissionContent}
-                  onChange={(e) => setSubmissionContent(e.target.value)}
-                  placeholder="Digite sua resposta ou cole o link do seu projeto aqui..."
-                  className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all outline-none resize-none"
-                />
-              </div>
-            ) : (
-              <div className="space-y-8 mb-8">
-                {selectedChallenge.questions?.map((q, idx) => (
-                  <div key={q.id} className="space-y-4">
-                    <p className="font-bold text-slate-900">
-                      <span className="text-brand-600 mr-2">{idx + 1}.</span>
-                      {q.text}
-                    </p>
-                    <div className="grid grid-cols-1 gap-3">
-                      {(['A', 'B', 'C', 'D'] as const).map((opt) => {
-                        const isSelected = activeQuiz?.answers[q.id]?.includes(opt);
-                        return (
-                          <button
-                            key={opt}
-                            onClick={() => handleQuizAnswer(q.id, opt)}
-                            className={`w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 ${
-                              isSelected 
-                                ? 'border-brand-500 bg-brand-50 text-brand-700' 
-                                : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200'
-                            }`}
-                          >
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${
-                              isSelected ? 'bg-brand-500 text-white' : 'bg-white text-slate-400'
-                            }`}>
-                              {opt}
-                            </div>
-                            <span className="font-medium">{q.options[opt]}</span>
-                          </button>
-                        );
-                      })}
+              <p className="text-slate-500 dark:text-slate-400 mb-8 border-l-4 border-brand-500 pl-4 py-1">{selectedChallenge.description}</p>
+              
+              {selectedChallenge.type === 'activity' ? (
+                <div className="space-y-4 mb-8">
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Sua Resposta / Link do Projeto
+                  </label>
+                  <textarea 
+                    value={submissionContent}
+                    onChange={(e) => setSubmissionContent(e.target.value)}
+                    placeholder="Digite sua resposta ou cole o link do seu projeto aqui..."
+                    className="w-full h-32 p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-all outline-none resize-none dark:text-white"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-12 mb-12">
+                  {selectedChallenge.questions?.map((q, idx) => (
+                    <div key={q.id || `active-q-${idx}`} className="space-y-6">
+                      <p className="text-lg font-bold text-slate-900 dark:text-white">
+                        <span className="text-brand-600 dark:text-brand-400 mr-3 text-2xl">0{idx + 1}.</span>
+                        {q.text}
+                      </p>
+                      <div className="grid grid-cols-1 gap-3 md:gap-4">
+                        {(['A', 'B', 'C', 'D'] as const).map((opt) => {
+                          const qId = q.id || `q-${idx}`;
+                          const isSelected = activeQuiz?.answers[qId]?.includes(opt);
+                          return (
+                            <button
+                              key={opt}
+                              onClick={() => handleQuizAnswer(qId, opt)}
+                              className={`w-full p-4 md:p-6 rounded-2xl border-2 text-left transition-all flex items-center gap-4 group ${
+                                isSelected 
+                                  ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-300' 
+                                  : 'border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:border-brand-200 dark:hover:border-brand-500/50'
+                              }`}
+                            >
+                              <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center font-black transition-colors ${
+                                isSelected ? 'bg-brand-500 text-white shadow-lg shadow-brand-200 dark:shadow-none' : 'bg-white dark:bg-zinc-800 text-slate-400 group-hover:text-brand-500'
+                              }`}>
+                                {opt}
+                              </div>
+                              <span className="font-bold text-base md:text-lg">{q.options[opt]}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
 
-            <div className="flex gap-4">
-              <button 
-                onClick={() => {
-                  if (activeQuiz) {
-                    setCancelConfirmation(selectedChallenge.id);
-                  } else {
-                    setSelectedChallenge(null);
-                  }
-                }}
-                className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button 
-                disabled={isSubmitting || (selectedChallenge.type === 'activity' ? !submissionContent : false)}
-                onClick={selectedChallenge.type === 'activity' ? handleSubmitActivity : submitQuiz}
-                className="flex-1 bg-brand-500 hover:bg-brand-600 disabled:bg-slate-200 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-                ) : (
-                  <>Enviar Resposta <Send className="w-4 h-4" /></>
-                )}
-              </button>
+              <div className="flex gap-4 sticky bottom-0 bg-white dark:bg-zinc-950 py-6 md:py-8 border-t border-slate-100 dark:border-white/10">
+                <button 
+                  onClick={() => {
+                    if (activeQuiz) {
+                      setCancelConfirmation(selectedChallenge.id);
+                    } else {
+                      setSelectedChallenge(null);
+                    }
+                  }}
+                  className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-4 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  disabled={isSubmitting || (selectedChallenge.type === 'activity' ? !submissionContent : false)}
+                  onClick={selectedChallenge.type === 'activity' ? handleSubmitActivity : submitQuiz}
+                  className="flex-2 bg-brand-500 hover:bg-brand-600 disabled:bg-slate-200 dark:disabled:bg-white/5 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-white"></div>
+                  ) : (
+                    <span className="flex items-center gap-2">Finalizar Desafio <Send className="w-5 h-5" /></span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

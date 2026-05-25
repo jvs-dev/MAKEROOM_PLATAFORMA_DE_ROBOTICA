@@ -257,6 +257,48 @@
         "grade": { "type": "number", "description": "Average grade in course quizzes." }
       },
       "required": ["userId", "courseId", "issueDate", "grade"]
+    },
+    "RankingPrize": {
+      "title": "Ranking Prize",
+      "description": "Configuration for the season's ranking prize.",
+      "type": "object",
+      "properties": {
+        "is_active": { "type": "boolean" },
+        "prize_name": { "type": "string" },
+        "prize_description": { "type": "string" },
+        "prize_image_url": { "type": "string" },
+        "season_end_date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["is_active", "prize_name"]
+    },
+    "PublicProfile": {
+      "title": "Public Profile",
+      "description": "Publicly visible user profile information for leaderboard and community.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "points": { "type": "number" },
+        "role": { "type": "string" },
+        "schoolId": { "type": "string" },
+        "teamId": { "type": "string" },
+        "room": { "type": "string" }
+      },
+      "required": ["uid", "displayName", "points", "role"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "An advertisement banner that rotates on the home page hero section.",
+      "type": "object",
+      "properties": {
+        "imageUrl": { "type": "string", "description": "URL of the banner image for desktop (16:6)." },
+        "mobileImageUrl": { "type": "string", "description": "URL of the banner image for mobile (5:6)." },
+        "redirectUrl": { "type": "string", "description": "URL to redirect users to when they click the banner." },
+        "isActive": { "type": "boolean", "description": "Whether the announcement is currently visible." },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["imageUrl", "redirectUrl", "isActive"]
     }
   },
   "firestore": {
@@ -274,6 +316,9 @@
     "courses": { "schema": "Course", "description": "Course definitions." },
     "certificates": { "schema": "Certificate", "description": "Awarded certificates." },
     "notifications": { "schema": "Notification", "description": "User notifications." },
-    "metadata": { "schema": "Metadata", "description": "System metadata." }
+    "metadata": { "schema": "Metadata", "description": "System metadata." },
+    "settings": { "schema": "RankingPrize", "description": "Global app settings." },
+    "public_profiles": { "schema": "PublicProfile", "description": "Publicly visible user profiles." },
+    "announcements": { "schema": "Announcement", "description": "Rotating advertisements and banners." }
   }
 }

@@ -1,0 +1,265 @@
+import { useState, useRef, useEffect } from 'react';
+import { Send, Bot, Loader2, Sparkles } from 'lucide-react';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../../firebase';
+
+type MessageState = {
+  role: 'user' | 'model';
+  parts: { text: string; functionCall?: any }[];
+};
+
+export function AdminAIChat() {
+  const [messages, setMessages] = useState<MessageState[]>([
+    {
+      role: 'model',
+      parts: [{ text: 'Olá! Sou o Assistente Makeroom 👋\nEstou aqui para ajudar você a gerenciar a plataforma de forma rápida e fácil. Posso criar atividades, aulas, itens da loja e muito mais. O que vamos construir hoje?' }]
+    }
+  ]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleCreateStoreItem = async (args: any) => {
+    try {
+      await addDoc(collection(db, 'products'), {
+        ...args,
+        stock: args.stock || 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return { success: true, message: `Item "${args.name}" criado com sucesso!` };
+    } catch (err) {
+      console.error(err);
+      return { success: false, error: err };
+    }
+  };
+
+  const handleCreateLesson = async (args: any) => {
+    try {
+      await addDoc(collection(db, 'lessons'), {
+        ...args,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return { success: true, message: `Aula "${args.title}" criada com sucesso!` };
+    } catch (err) {
+      console.error(err);
+      return { success: false, error: err };
+    }
+  };
+
+  const handleCreateChallenge = async (args: any) => {
+    try {
+      const finalArgs = { ...args };
+      
+      // Inject IDs for questions if they exist
+      if (finalArgs.questions && Array.isArray(finalArgs.questions)) {
+        finalArgs.questions = finalArgs.questions.map((q: any) => ({
+          ...q,
+          id: q.id || Math.random().toString(36).substr(2, 9)
+        }));
+      }
+
+      await addDoc(collection(db, 'challenges'), {
+        ...finalArgs,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return { success: true, message: `Desafio "${args.title}" criado com sucesso!` };
+    } catch (err) {
+      console.error(err);
+      return { success: false, error: err };
+    }
+  };
+
+  const handleCreateCourse = async (args: any) => {
+    try {
+      await addDoc(collection(db, 'courses'), {
+        ...args,
+        lessonIds: [],
+        challengeIds: [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return { success: true, message: `Curso "${args.title}" criado com sucesso!` };
+    } catch (err) {
+      console.error(err);
+      return { success: false, error: err };
+    }
+  };
+
+  const handleCreateAnnouncement = async (args: any) => {
+    try {
+      await addDoc(collection(db, 'announcements'), {
+        ...args,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return { success: true, message: `Anúncio criado com sucesso!` };
+    } catch (err) {
+      console.error(err);
+      return { success: false, error: err };
+    }
+  };
+
+  const executeFunctionCall = async (call: any): Promise<{ success: boolean, error?: any, message?: string }> => {
+    let result: { success: boolean, error?: any, message?: string } = { success: false, error: 'Unknown function' };
+    if (call.name === 'createStoreItem') result = await handleCreateStoreItem(call.args);
+    if (call.name === 'createLesson') result = await handleCreateLesson(call.args);
+    if (call.name === 'createChallenge') result = await handleCreateChallenge(call.args);
+    if (call.name === 'createCourse') result = await handleCreateCourse(call.args);
+    if (call.name === 'createAnnouncement') result = await handleCreateAnnouncement(call.args);
+    return result;
+  };
+
+  const sendMessage = async (newMessages: MessageState[]) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/admin/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages })
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) throw new Error(data.error);
+
+      // Model response
+      const modelParts = [];
+      if (data.text) {
+        modelParts.push({ text: data.text });
+      }
+
+      if (data.functionCalls && data.functionCalls.length > 0) {
+        setMessages([...newMessages, { role: 'model', parts: [{ text: "Executando ações solicitadas..." }] }]);
+        
+        let execResults = [];
+        for (const call of data.functionCalls) {
+          const res = await executeFunctionCall(call);
+          execResults.push(res);
+        }
+
+        // We can just add a final status message
+        setMessages(prev => [
+           ...prev,
+           { role: 'model', parts: [{ text: execResults.map(r => r.message || 'Erro ao criar item.').join('\n') }] }
+        ]);
+        
+        setIsLoading(false);
+        return;
+      }
+      
+      setMessages([...newMessages, { role: 'model', parts: modelParts }]);
+      
+    } catch (error) {
+      console.error('Chat error:', error);
+      setMessages(prev => [
+        ...prev,
+        { role: 'model', parts: [{ text: 'Ops, ocorreu um erro ao comunicar com a IA.' }] }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSend = () => {
+    if (!input.trim() || isLoading) return;
+    
+    const userMsg: MessageState = { role: 'user', parts: [{ text: input }] };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    setInput('');
+    sendMessage(newMessages);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-slate-100 dark:border-white/10 rounded-2xl md:rounded-3xl shadow-sm flex flex-col h-[400px] overflow-hidden mb-8">
+      <div className="p-4 bg-brand-50 dark:bg-brand-500/10 border-b border-brand-100 dark:border-brand-500/20 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-brand-500 text-white flex items-center justify-center overflow-hidden border-2 border-white dark:border-zinc-900 shadow-sm">
+             <img src="https://makeroom2.vercel.app/logo.svg" alt="Makeroom Agent" className="w-5 h-5 object-contain brightness-0 invert" />
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-900 dark:text-white text-sm">Assistente Makeroom</h2>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 -mt-0.5">Online agora</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
+          <Sparkles className="w-3 h-3" />
+          Beta
+        </div>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 dark:bg-zinc-900/50">
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {msg.role === 'model' && (
+              <div className="w-8 h-8 rounded-full bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 flex flex-shrink-0 items-center justify-center overflow-hidden">
+                <img src="https://makeroom2.vercel.app/logo.svg" alt="Assistente" className="w-5 h-5 object-contain" />
+              </div>
+            )}
+            <div className={`max-w-[80%] rounded-2xl p-3 ${
+              msg.role === 'user' 
+                ? 'bg-brand-500 text-white rounded-tr-sm' 
+                : 'bg-white dark:bg-zinc-800 text-slate-700 dark:text-slate-300 border border-slate-100 dark:border-white/10 rounded-tl-sm'
+            }`}>
+              {msg.parts.map((p, j) => (
+                <div key={j} className="whitespace-pre-wrap text-sm leading-relaxed">
+                  {p.text}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="flex gap-3 justify-start">
+            <div className="w-8 h-8 rounded-full bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 flex flex-shrink-0 items-center justify-center overflow-hidden">
+              <img src="https://makeroom2.vercel.app/logo.svg" alt="Assistente" className="w-5 h-5 object-contain" />
+            </div>
+            <div className="bg-white dark:bg-zinc-800 border border-slate-100 dark:border-white/10 rounded-2xl rounded-tl-sm p-3 flex items-center">
+              <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className="p-4 bg-white dark:bg-zinc-900 border-t border-slate-100 dark:border-white/10">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ex: Crie um item..."
+            className="flex-1 bg-slate-50 dark:bg-zinc-800 border-0 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-500 text-slate-900 dark:text-white placeholder:text-slate-400"
+            disabled={isLoading}
+          />
+          <button
+            onClick={handleSend}
+            disabled={isLoading || !input.trim()}
+            className="bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:hover:bg-brand-500 text-white p-2.5 rounded-xl transition-colors shrink-0"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
