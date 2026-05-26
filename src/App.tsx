@@ -32,14 +32,18 @@ import ManageCourses from './pages/admin/ManageCourses';
 import ManageRankPrize from './pages/admin/ManageRankPrize';
 import ProjectNotes from './pages/admin/ProjectNotes';
 import ManageAnnouncements from './pages/admin/ManageAnnouncements';
+import ManageReportedVideos from './pages/admin/ManageReportedVideos';
 import ErrorBoundary from './components/ErrorBoundary';
 import LevelUpOverlay from './components/LevelUpOverlay';
 
 import { requestNotificationPermission, initNotificationListener } from './services/notificationService';
 
+import { AlertCircle } from 'lucide-react';
+
 export default function App() {
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isBanned, setIsBanned] = useState(false);
 
   useEffect(() => {
     // Request permission on mount
@@ -50,15 +54,22 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user && user.email) {
         const userDoc = await getDoc(doc(db, 'users', user.email));
+        let banned = false;
         if (userDoc.exists()) {
-          setUserRole(userDoc.data().role);
+          const userData = userDoc.data();
+          setUserRole(userData.role);
+          if (userData.banned === true) {
+            banned = true;
+          }
         }
+        setIsBanned(banned);
         
         // Initialize notification listener for the user
         if (stopListener) stopListener();
         stopListener = initNotificationListener(user.uid);
       } else {
         setUserRole(null);
+        setIsBanned(false);
         if (stopListener) {
           stopListener();
           stopListener = null;
@@ -77,6 +88,29 @@ export default function App() {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-deep-black transition-colors">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500"></div>
+      </div>
+    );
+  }
+
+  if (isBanned) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-white font-sans p-6 text-center">
+        <div className="w-20 h-20 bg-red-500/10 border border-red-500/20 text-red-500 rounded-full flex items-center justify-center mb-6">
+          <AlertCircle size={40} />
+        </div>
+        <h1 className="text-3xl font-black uppercase tracking-tight text-red-500 mb-2">Conta Suspensa</h1>
+        <p className="text-slate-400 max-w-md mb-8">
+          Sua conta foi suspensa temporariamente ou permanentemente por violar as diretrizes de conteúdo da comunidade Makeroom (especialmente em denúncias de vídeos no MakerShorts). Elas foram analisadas e decididas pela administração.
+        </p>
+        <button
+          onClick={async () => {
+            await auth.signOut();
+            setIsBanned(false);
+          }}
+          className="bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white font-bold px-6 py-3 rounded-2xl transition-all shadow-lg active:scale-95 whitespace-nowrap"
+        >
+          Sair da Conta
+        </button>
       </div>
     );
   }
@@ -112,6 +146,7 @@ export default function App() {
               <Route path="/admin/schools" element={<ManageSchools />} />
               <Route path="/admin/notes" element={<ProjectNotes />} />
               <Route path="/admin/announcements" element={<ManageAnnouncements />} />
+              <Route path="/admin/reported-videos" element={<ManageReportedVideos />} />
             </Route>
           </Route>
 

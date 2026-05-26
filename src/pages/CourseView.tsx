@@ -19,6 +19,7 @@ import {
   Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { PrintableCertificate } from '../components/PrintableCertificate';
 
 interface Course {
   id: string;
@@ -26,6 +27,8 @@ interface Course {
   description: string;
   lessonIds: string[];
   challengeIds: string[];
+  contentSequence?: {type: 'lesson' | 'quiz', id: string, title?: string}[];
+  hasCertificate?: boolean;
   pointsReward: number;
   thumbnail: string;
 }
@@ -38,6 +41,7 @@ interface Lesson {
 interface Challenge {
   id: string;
   title: string;
+  type: string;
 }
 
 interface Submission {
@@ -64,6 +68,7 @@ export default function CourseView() {
   const [isIssuing, setIsIssuing] = useState(false);
   const [certificate, setCertificate] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
 
   useEffect(() => {
     if (!id || !auth.currentUser?.email) return;
@@ -94,7 +99,7 @@ export default function CourseView() {
       const challengesData = await Promise.all(
         (courseData.challengeIds || []).map(async (cid) => {
           const cDoc = await getDoc(doc(db, 'challenges', cid));
-          return cDoc.exists() ? { id: cDoc.id, title: cDoc.data().title } : null;
+          return cDoc.exists() ? { id: cDoc.id, title: cDoc.data().title, type: cDoc.data().type } : null;
         })
       );
       setChallenges(challengesData.filter(c => c !== null) as Challenge[]);
@@ -195,7 +200,7 @@ export default function CourseView() {
     ? course.challengeIds.reduce((acc, id) => acc + getBestGradeForChallenge(id), 0) / course.challengeIds.length
     : 100;
 
-  const canClaimCertificate = allLessonsCompleted && allQuizzesPassed && !certificate;
+  const canClaimCertificate = allLessonsCompleted && allQuizzesPassed && !certificate && course?.hasCertificate;
 
   const handleClaimCertificate = async () => {
     if (!canClaimCertificate || !auth.currentUser?.email || !course) return;
@@ -226,71 +231,14 @@ export default function CourseView() {
     }
   };
 
+  useEffect(() => {
+    if (canClaimCertificate && !isIssuing && course && userData && auth.currentUser?.email) {
+      handleClaimCertificate();
+    }
+  }, [canClaimCertificate, isIssuing, course, userData]);
+
   const handlePrintCertificate = () => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const date = certificate.issueDate?.toDate ? certificate.issueDate.toDate().toLocaleDateString() : new Date().toLocaleDateString();
-
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Certificado - ${course?.title}</title>
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-            body { 
-              margin: 0; 
-              padding: 0; 
-              font-family: 'Inter', sans-serif;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              min-height: 100vh;
-              background: #f8fafc;
-            }
-            .certificate {
-              width: 800px;
-              height: 600px;
-              background: white;
-              border: 20px solid #4f46e5;
-              padding: 60px;
-              text-align: center;
-              position: relative;
-              box-shadow: 0 20px 50px rgba(0,0,0,0.1);
-            }
-            .logo { font-size: 24px; font-weight: 900; color: #4f46e5; margin-bottom: 40px; }
-            h1 { font-size: 48px; margin: 20px 0; color: #1e293b; }
-            h2 { font-size: 24px; color: #64748b; font-weight: 400; margin-bottom: 40px; }
-            .name { font-size: 36px; font-weight: 700; color: #4f46e5; margin: 20px 0; text-decoration: underline; }
-            .course { font-size: 28px; font-weight: 700; color: #1e293b; }
-            .footer { margin-top: 60px; display: flex; justify-content: space-between; align-items: flex-end; }
-            .info { text-align: left; color: #64748b; font-size: 14px; }
-            .stamp { width: 100px; height: 100px; border: 4px double #4f46e5; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4f46e5; font-weight: 900; transform: rotate(-15deg); }
-          </style>
-        </head>
-        <body>
-          <div class="certificate">
-            <div class="logo">MAKEROOM ROBÓTICA</div>
-            <h2>Certificamos que</h2>
-            <div class="name">${userData.name}</div>
-            <h2>concluiu com êxito o curso de</h2>
-            <div class="course">${course?.title}</div>
-            <div class="footer">
-              <div class="info">
-                <p>Data de Emissão: ${date}</p>
-                <p>Média Final: ${averageGrade.toFixed(1)}%</p>
-                <p>ID do Certificado: ${certificate.id}</p>
-              </div>
-              <div class="stamp">APROVADO</div>
-            </div>
-          </div>
-          <script>
-            window.onload = () => { window.print(); window.close(); };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    setIsCertificateModalOpen(true);
   };
 
   if (isLoading) {
@@ -319,7 +267,7 @@ export default function CourseView() {
             <motion.div 
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-emerald-500 text-white p-5 md:p-6 rounded-[2rem] shadow-lg shadow-emerald-100 flex flex-col md:flex-row md:items-center justify-between gap-6"
+              className="bg-emerald-500 text-white p-5 md:p-6 rounded-[2rem] shadow-lg shadow-emerald-100 dark:shadow-none flex flex-col md:flex-row md:items-center justify-between gap-6"
             >
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm shrink-0">
@@ -351,7 +299,7 @@ export default function CourseView() {
             <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-4">{course.title}</h1>
             <p className="text-slate-600 dark:text-slate-400 leading-relaxed mb-8">{course.description}</p>
 
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5 transition-colors">
                 <BookOpen className="w-5 h-5 text-indigo-500 mb-2" />
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Aulas</p>
@@ -367,90 +315,108 @@ export default function CourseView() {
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Pontos</p>
                 <p className="text-lg font-bold text-slate-900 dark:text-white">+{course.pointsReward}</p>
               </div>
+              <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5 transition-colors">
+                <Award className="w-5 h-5 text-brand-500 mb-2" />
+                <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Certificado</p>
+                <p className="text-lg font-bold text-slate-900 dark:text-white">{course.hasCertificate ? 'Sim' : 'Não'}</p>
+              </div>
             </div>
           </div>
 
           <div className="space-y-4">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white px-4">Conteúdo do Curso</h2>
             <div className="space-y-3">
-              {lessons.map((lesson, idx) => (
-                <div 
-                  key={lesson.id}
-                  onClick={() => navigate('/', { state: { lessonId: lesson.id } })}
-                  className={`bg-white dark:bg-zinc-900 p-5 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-500/50 ${
-                    isLessonCompleted(lesson.id) ? 'border-emerald-100 dark:border-emerald-500/20 bg-emerald-50/30 dark:bg-emerald-500/10' : 'border-slate-100 dark:border-white/10'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                    isLessonCompleted(lesson.id) ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500'
-                  }`}>
-                    {isLessonCompleted(lesson.id) ? <CheckCircle2 className="w-6 h-6" /> : idx + 1}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-slate-900 dark:text-white">{lesson.title}</p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Aula Teórica</p>
-                  </div>
-                  {!isLessonCompleted(lesson.id) && (
-                    <div className="text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:underline">
-                      Assistir
+              {(course.contentSequence?.length 
+                ? course.contentSequence 
+                : [
+                    ...(lessons.map(l => ({ type: 'lesson' as const, id: l.id }))),
+                    ...(challenges.map(c => ({ type: 'quiz' as const, id: c.id })))
+                  ]
+              ).map((item, idx) => {
+                if (item.type === 'lesson') {
+                  const lesson = lessons.find(l => l.id === item.id);
+                  if (!lesson) return null;
+                  return (
+                    <div 
+                      key={`lesson-${lesson.id}-${idx}`}
+                      onClick={() => navigate('/', { state: { lessonId: lesson.id, courseId: course.id } })}
+                      className={`bg-white dark:bg-zinc-900 p-5 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-500/50 ${
+                        isLessonCompleted(lesson.id) ? 'border-emerald-100 dark:border-emerald-500/20 bg-emerald-50/30 dark:bg-emerald-500/10' : 'border-slate-100 dark:border-white/10'
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                        isLessonCompleted(lesson.id) ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500'
+                      }`}>
+                        {isLessonCompleted(lesson.id) ? <CheckCircle2 className="w-6 h-6" /> : idx + 1}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-900 dark:text-white">{lesson.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Aula Teórica</p>
+                      </div>
+                      {!isLessonCompleted(lesson.id) && (
+                        <div className="text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:underline">
+                          Assistir
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
+                  );
+                } else if (item.type === 'quiz') {
+                  const quiz = challenges.find(c => c.id === item.id);
+                  if (!quiz) return null;
+                  const bestGrade = getBestGradeForChallenge(quiz.id);
+                  const latestResult = getQuizResult(quiz.id);
+                  const isPassed = bestGrade >= 70;
+                  const isPerfect = bestGrade === 100;
+                  const cooldownUntil = getCooldown(quiz.id);
+                  const isOnCooldown = !!cooldownUntil;
+                  const isDisabled = isOnCooldown || isPerfect;
 
-              {challenges.map((quiz) => {
-                const bestGrade = getBestGradeForChallenge(quiz.id);
-                const latestResult = getQuizResult(quiz.id);
-                const isPassed = bestGrade >= 70;
-                const isPerfect = bestGrade === 100;
-                const cooldownUntil = getCooldown(quiz.id);
-                const isOnCooldown = !!cooldownUntil;
-                const isDisabled = isOnCooldown || isPerfect;
-
-                return (
-                  <div 
-                    key={quiz.id}
-                    onClick={() => !isDisabled && navigate('/challenges', { state: { challengeId: quiz.id } })}
-                    className={`bg-white dark:bg-zinc-900 p-5 rounded-2xl border flex items-center gap-4 transition-all ${
-                      isDisabled ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer hover:shadow-md hover:border-amber-200 dark:hover:border-amber-500/50'
-                    } ${
-                      isOnCooldown ? 'border-red-100 dark:border-red-500/20 bg-red-50/10 dark:bg-red-500/10' : (isPassed ? 'border-amber-100 dark:border-amber-500/20 bg-amber-50/30 dark:bg-amber-500/10' : 'border-slate-100 dark:border-white/10')
-                    }`}
-                  >
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-                      isOnCooldown ? 'bg-red-100 dark:bg-red-500/20 text-red-500' : (isPassed ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500')
-                    }`}>
-                      {isOnCooldown ? <Clock className="w-6 h-6" /> : (isPassed ? <CheckCircle2 className="w-6 h-6" /> : <Zap className="w-6 h-6" />)}
+                  return (
+                    <div 
+                      key={`quiz-${quiz.id}-${idx}`}
+                      onClick={() => !isDisabled && navigate('/challenges', { state: { challengeId: quiz.id, courseId: course.id } })}
+                      className={`bg-white dark:bg-zinc-900 p-5 rounded-2xl border flex items-center gap-4 transition-all ${
+                        isDisabled ? 'opacity-75 cursor-not-allowed' : 'cursor-pointer hover:shadow-md hover:border-amber-200 dark:hover:border-amber-500/50'
+                      } ${
+                        isOnCooldown ? 'border-red-100 dark:border-red-500/20 bg-red-50/10 dark:bg-red-500/10' : (isPassed ? 'border-amber-100 dark:border-amber-500/20 bg-amber-50/30 dark:bg-amber-500/10' : 'border-slate-100 dark:border-white/10')
+                      }`}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+                        isOnCooldown ? 'bg-red-100 dark:bg-red-500/20 text-red-500' : (isPassed ? 'bg-amber-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400 dark:text-slate-500')
+                      }`}>
+                        {isOnCooldown ? <Clock className="w-6 h-6" /> : (isPassed ? <CheckCircle2 className="w-6 h-6" /> : <Zap className="w-6 h-6" />)}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-900 dark:text-white">{quiz.title}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {isOnCooldown ? (
+                            <span className="text-red-600 dark:text-red-400 font-medium">
+                              Em cooldown até {cooldownUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          ) : (
+                            bestGrade > 0 ? `Melhor Nota: ${bestGrade}%` : (quiz.type === 'code' ? 'Playground de Código' : (quiz.type === 'activity' ? 'Atividade Prática' : 'Quiz de Avaliação'))
+                          )}
+                        </p>
+                      </div>
+                      {(!isPerfect) && !isOnCooldown && (
+                        <div className="text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:underline flex items-center gap-1">
+                          {bestGrade > 0 ? 'Refazer' : 'Responder'} <RefreshCcw className="w-3 h-3" />
+                        </div>
+                      )}
+                      {isOnCooldown && (
+                        <div className="text-red-600 dark:text-red-400 font-bold text-xs uppercase tracking-wider">
+                          Bloqueado
+                        </div>
+                      )}
+                      {isPerfect && (
+                        <div className="text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                          Concluído
+                        </div>
+                      )}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-slate-900 dark:text-white">{quiz.title}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {isOnCooldown ? (
-                          <span className="text-red-600 dark:text-red-400 font-medium">
-                            Em cooldown até {cooldownUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        ) : (
-                          bestGrade > 0 ? `Melhor Nota: ${bestGrade}%` : 'Quiz de Avaliação'
-                        )}
-                      </p>
-                    </div>
-                    {(!isPerfect) && !isOnCooldown && (
-                      <div className="text-indigo-600 dark:text-indigo-400 font-bold text-xs hover:underline flex items-center gap-1">
-                        {bestGrade > 0 ? 'Refazer' : 'Responder'} <RefreshCcw className="w-3 h-3" />
-                      </div>
-                    )}
-                    {isOnCooldown && (
-                      <div className="text-red-600 dark:text-red-400 font-bold text-xs uppercase tracking-wider">
-                        Bloqueado
-                      </div>
-                    )}
-                    {isPerfect && (
-                      <div className="text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
-                        Concluído
-                      </div>
-                    )}
-                  </div>
-                );
+                  );
+                }
+                return null;
               })}
             </div>
           </div>
@@ -487,53 +453,55 @@ export default function CourseView() {
                 </span>
               </div>
 
-              <div className="pt-6 border-t border-slate-50 dark:border-white/5">
-                {certificate ? (
-                  <div className="space-y-4">
-                    <div className="bg-emerald-50 dark:bg-emerald-500/10 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-500/20 text-center">
-                      <Award className="w-10 h-10 text-emerald-500 dark:text-emerald-400 mx-auto mb-2" />
-                      <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">Certificado Conquistado!</p>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase font-black mt-1">Média: {certificate.grade.toFixed(1)}%</p>
-                    </div>
-                    <button 
-                      onClick={handlePrintCertificate}
-                      className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 dark:shadow-none"
-                    >
-                      <Download className="w-5 h-5" /> Baixar Certificado
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {!allQuizzesPassed && submissions.some(s => course.challengeIds.includes(s.challengeId) && s.grade < 70) && (
-                      <div className="bg-red-50 dark:bg-red-500/10 p-4 rounded-2xl border border-red-100 dark:border-red-500/20 flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-                        <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
-                          Você não atingiu a nota mínima de 70% em alguns quizes. Refaça-os para ganhar o certificado.
-                        </p>
+              {course.hasCertificate && (
+                <div className="pt-6 border-t border-slate-50 dark:border-white/5">
+                  {certificate ? (
+                    <div className="space-y-4">
+                      <div className="bg-emerald-50 dark:bg-emerald-500/10 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-500/20 text-center">
+                        <Award className="w-10 h-10 text-emerald-500 dark:text-emerald-400 mx-auto mb-2" />
+                        <p className="text-sm font-bold text-emerald-900 dark:text-emerald-100">Certificado Conquistado!</p>
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase font-black mt-1">Média: {certificate.grade.toFixed(1)}%</p>
                       </div>
-                    )}
-                    
-                    <button 
-                      onClick={handleClaimCertificate}
-                      disabled={!canClaimCertificate || isIssuing}
-                      className="w-full bg-slate-900 dark:bg-brand-500 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 dark:hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg dark:shadow-none"
-                    >
-                      {isIssuing ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Award className="w-5 h-5" />
+                      <button 
+                        onClick={handlePrintCertificate}
+                        className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 dark:shadow-none"
+                      >
+                        <Download className="w-5 h-5" /> Baixar Certificado
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {!allQuizzesPassed && submissions.some(s => course.challengeIds.includes(s.challengeId) && s.grade < 70) && (
+                        <div className="bg-red-50 dark:bg-red-500/10 p-4 rounded-2xl border border-red-100 dark:border-red-500/20 flex items-start gap-3">
+                          <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                          <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
+                            Você não atingiu a nota mínima de 70% em alguns quizes. Refaça-os para ganhar o certificado.
+                          </p>
+                        </div>
                       )}
-                      {isIssuing ? 'Emitindo...' : 'Resgatar Certificado'}
-                    </button>
-                    
-                    {!canClaimCertificate && !certificate && (
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center font-medium">
-                        Complete todas as aulas e atinja 70% nos quizes para liberar.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+                      
+                      <button 
+                        onClick={handleClaimCertificate}
+                        disabled={!canClaimCertificate || isIssuing}
+                        className="w-full bg-slate-900 dark:bg-brand-500 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 dark:hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg dark:shadow-none"
+                      >
+                        {isIssuing ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Award className="w-5 h-5" />
+                        )}
+                        {isIssuing ? 'Emitindo...' : 'Resgatar Certificado'}
+                      </button>
+                      
+                      {!canClaimCertificate && !certificate && (
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center font-medium">
+                          Complete todas as aulas e atinja 70% nos quizes para liberar.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -602,6 +570,16 @@ export default function CourseView() {
           </div>
         )}
       </AnimatePresence>
+
+      <PrintableCertificate
+        isOpen={isCertificateModalOpen}
+        onClose={() => setIsCertificateModalOpen(false)}
+        userName={userData?.name || ''}
+        courseTitle={course?.title || ''}
+        issueDate={certificate?.issueDate}
+        grade={certificate?.grade || 100}
+        certificateId={certificate?.id || ''}
+      />
     </div>
   );
 }

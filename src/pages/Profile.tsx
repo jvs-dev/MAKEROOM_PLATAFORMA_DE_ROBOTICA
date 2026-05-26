@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import { doc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { User, Mail, Shield, Award, Calendar, ChevronRight, Download, Loader2, Camera, X, Check, ChevronLeft, Trophy, Bell, BellOff, Moon, Sun, Medal } from 'lucide-react';
+import { User, Mail, Shield, Award, Calendar, ChevronRight, Download, Loader2, Camera, X, Check, ChevronLeft, Trophy, Bell, BellOff, Moon, Sun, Medal, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { requestNotificationPermission, showBrowserNotification } from '../services/notificationService';
+import { PrintableCertificate } from '../components/PrintableCertificate';
 
 interface UserData {
   uid: string;
@@ -34,6 +36,16 @@ export default function Profile() {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'denied'
   );
+  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
+  const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
+  
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error('Erro ao sair:', err);
+    }
+  };
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Check localStorage first
     const saved = localStorage.getItem('theme');
@@ -102,61 +114,299 @@ export default function Profile() {
   }, []);
 
   const handlePrintCertificate = (cert: Certificate) => {
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
+    setSelectedCert(cert);
+    setIsCertificateModalOpen(true);
+  };
 
-    const date = cert.issueDate?.toDate ? cert.issueDate.toDate().toLocaleDateString() : new Date().toLocaleDateString();
-
-    printWindow.document.write(`
+  const _legacy_unused_cert = `
       <html>
         <head>
-          <title>Certificado - ${cert.courseTitle}</title>
+          <title>Certificado</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Montserrat:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,600;0,700;1,500&family=Space+Grotesk:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+            
+            * {
+              box-sizing: border-box;
+            }
+            
+            @media print {
+              @page {
+                size: landscape;
+                margin: 0;
+              }
+              body {
+                background: #ffffff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                height: 100vh !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              .certificate-wrapper {
+                box-shadow: none !important;
+                border: none !important;
+                background: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+              }
+              .certificate {
+                transform: scale(1) !important;
+                box-shadow: none !important;
+                border: 1px solid rgba(249, 115, 22, 0.1) !important;
+              }
+            }
+            
             body { 
               margin: 0; 
               padding: 0; 
-              font-family: 'Inter', sans-serif;
+              font-family: 'Space Grotesk', sans-serif;
               display: flex;
               align-items: center;
               justify-content: center;
               min-height: 100vh;
-              background: #f8fafc;
+              background: #0f172a;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
+            
+            .certificate-wrapper {
+              background: #0f172a;
+              padding: 30px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              width: 100%;
+              height: 100%;
+            }
+            
             .certificate {
-              width: 800px;
-              height: 600px;
-              background: white;
-              border: 20px solid #4f46e5;
-              padding: 60px;
-              text-align: center;
               position: relative;
-              box-shadow: 0 20px 50px rgba(0,0,0,0.1);
+              width: 1020px;
+              height: 720px;
+              background: #ffffff;
+              padding: 55px 75px;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+              overflow: hidden;
+              border: 1px solid rgba(249, 115, 22, 0.15);
             }
-            .logo { font-size: 24px; font-weight: 900; color: #4f46e5; margin-bottom: 40px; }
-            h1 { font-size: 48px; margin: 20px 0; color: #1e293b; }
-            h2 { font-size: 24px; color: #64748b; font-weight: 400; margin-bottom: 40px; }
-            .name { font-size: 36px; font-weight: 700; color: #4f46e5; margin: 20px 0; text-decoration: underline; }
-            .course { font-size: 28px; font-weight: 700; color: #1e293b; }
-            .footer { margin-top: 60px; display: flex; justify-content: space-between; align-items: flex-end; }
-            .info { text-align: left; color: #64748b; font-size: 14px; }
-            .stamp { width: 100px; height: 100px; border: 4px double #4f46e5; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #4f46e5; font-weight: 900; transform: rotate(-15deg); }
+            
+            /* Corner Accents */
+            .corner {
+              position: absolute;
+              width: 120px;
+              height: 120px;
+              pointer-events: none;
+              z-index: 5;
+            }
+            .corner-tl {
+              top: 0;
+              left: 0;
+              border-top: 8px solid #f97316;
+              border-left: 8px solid #f97316;
+            }
+            .corner-tr {
+              top: 0;
+              right: 0;
+              border-top: 8px solid #f97316;
+              border-right: 8px solid #f97316;
+            }
+            .corner-bl {
+              bottom: 0;
+              left: 0;
+              border-bottom: 8px solid #f97316;
+              border-left: 8px solid #f97316;
+            }
+            .corner-br {
+              bottom: 0;
+              right: 0;
+              border-bottom: 8px solid #f97316;
+              border-right: 8px solid #f97316;
+            }
+            
+            /* Inner gold/orange thin frame */
+            .inner-frame {
+              position: absolute;
+              top: 20px;
+              left: 20px;
+              right: 20px;
+              bottom: 20px;
+              border: 1px solid rgba(249, 115, 22, 0.25);
+              pointer-events: none;
+              z-index: 4;
+            }
+            
+            .content-container {
+              position: relative;
+              z-index: 10;
+              height: 100%;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+            }
+            
+            .stamp-container {
+              position: relative;
+              width: 110px;
+              height: 110px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
           </style>
         </head>
         <body>
-          <div class="certificate">
-            <div class="logo">MAKEROOM ROBÓTICA</div>
-            <h2>Certificamos que</h2>
-            <div class="name">${userData?.name}</div>
-            <h2>concluiu com êxito o curso de</h2>
-            <div class="course">${cert.courseTitle}</div>
-            <div class="footer">
-              <div class="info">
-                <p>Data de Emissão: ${date}</p>
-                <p>Média Final: ${cert.grade.toFixed(1)}%</p>
-                <p>ID do Certificado: ${cert.id}</p>
+          <div class="certificate-wrapper">
+            <div class="certificate">
+              <!-- Geometric Border Accents -->
+              <div class="corner corner-tl"></div>
+              <div class="corner corner-tr"></div>
+              <div class="corner corner-bl"></div>
+              <div class="corner corner-br"></div>
+              <div class="inner-frame"></div>
+              
+              <!-- Technological Vector Graphic Overlay -->
+              <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;" width="1020" height="720" viewBox="0 0 1020 720" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Tech grids -->
+                <defs>
+                  <pattern id="tech-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f1f5f9" stroke-width="0.75" />
+                  </pattern>
+                  <linearGradient id="brand-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#fd0" />
+                    <stop offset="100%" stop-color="#f97316" />
+                  </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#tech-grid)" opacity="0.6" />
+                
+                <!-- Central futuristic rings -->
+                <circle cx="510" cy="360" r="320" stroke="#f97316" stroke-width="1" stroke-dasharray="3,12" opacity="0.12" />
+                <circle cx="510" cy="360" r="240" stroke="#0f172a" stroke-width="0.75" opacity="0.06" />
+                <circle cx="510" cy="360" r="160" stroke="#f97316" stroke-width="2" stroke-dasharray="25,25" opacity="0.08" />
+                
+                <!-- Circuit board styling paths in the lower margins -->
+                <path d="M 50,450 L 150,450 L 190,490 L 190,530" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="2,4" opacity="0.18" fill="none" />
+                <path d="M 970,450 L 870,450 L 830,490 L 830,530" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="2,4" opacity="0.18" fill="none" />
+                <circle cx="190" cy="530" r="3" fill="#ea580c" opacity="0.25" />
+                <circle cx="830" cy="530" r="3" fill="#ea580c" opacity="0.25" />
+                
+                <!-- Top Header technical details -->
+                <path d="M 200,50 L 320,50" stroke="#ea580c" stroke-width="2" opacity="0.4" />
+                <path d="M 820,50 L 700,50" stroke="#ea580c" stroke-width="2" opacity="0.4" />
+              </</svg>
+              
+              <div class="content-container">
+                <!-- Header of Certificate -->
+                <div style="text-align: center; margin-top: 10px;">
+                  <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 25px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-top: -3px;">
+                      <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M2 17L12 22L22 17" stroke="#ea580c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M2 12L12 17L22 12" stroke="#1e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+                    </svg>
+                    <span style="font-family: 'Space Grotesk', sans-serif; font-size: 21px; font-weight: 900; letter-spacing: 5px; color: #1e293b;">MAKEROOM</span>
+                    <span style="font-family: 'Space Grotesk', sans-serif; font-size: 21px; font-weight: 400; letter-spacing: 5px; color: #f97316;">ROBÓTICA</span>
+                  </div>
+                  <div style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 800; color: #f97316; letter-spacing: 8px; text-transform: uppercase;">Certificado de Conclusão</div>
+                  <div style="width: 100px; height: 3px; background: #f97316; margin: 12px auto 0 auto; border-radius: 2px;"></div>
+                </div>
+
+                <!-- Main Certification Statement -->
+                <div style="text-align: center; margin: 25px 0;">
+                  <p style="font-family: 'Playfair Display', serif; font-style: italic; font-size: 20px; color: #64748b; margin: 0 0 16px 0;">Certificamos que o estudante</p>
+                  
+                  <!-- Recipient Name -->
+                  <div style="font-family: 'Montserrat', sans-serif; font-size: 44px; font-weight: 900; color: #0f172a; letter-spacing: -1px; margin: 15px 0; text-transform: uppercase;">
+                    ${userData?.name}
+                  </div>
+                  
+                  <p style="font-family: 'Playfair Display', serif; font-style: italic; font-size: 19px; color: #64748b; margin: 15px 0;">concluiu com êxito e aproveitamento máximo a trilha de aprendizado de</p>
+                  
+                  <!-- Course Title -->
+                  <div style="font-family: 'Space Grotesk', sans-serif; font-size: 32px; font-weight: 900; color: #f97316; margin: 15px 0; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Curso de Robótica
+                  </div>
+                  
+                  <p style="font-family: 'Montserrat', sans-serif; font-size: 13.5px; color: #94a3b8; font-weight: 500; max-width: 680px; margin: 20px auto 0 auto; line-height: 1.6;">
+                    Comprovando proficiência técnica, participação proeminente nas atividades teórico-práticas, superação de desafios lógicos e excelência no desenvolvimento de projetos autorais utilizando Metodologia Maker e Engenharia de Software.
+                  </p>
+                </div>
+
+                <!-- Footer details, signatures and stamps -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; padding-top: 20px; border-top: 1px solid #f1f5f9; z-index: 10;">
+                  
+                  <!-- Left side metadata in neat monospace -->
+                  <div style="text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #64748b; line-height: 1.8;">
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                      <span style="color: #f97316; font-weight: 700;">[● EMISSÃO]</span> 00/00/0000
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                      <span style="color: #ea580c; font-weight: 700;">[● DESEMPENHO]</span> 100% / 100%
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span style="color: #94a3b8; font-weight: 700;">[● AUTENTICIDADE]</span> <span style="color: #1e293b; font-weight: 700;">#ID</span>
+                    </div>
+                  </div>
+                  
+                  <!-- Middle Signatures Block -->
+                  <div style="display: flex; gap: 35px; align-items: flex-end; margin-bottom: -4px;">
+                    <!-- Coordinate Signature -->
+                    <div style="text-align: center; width: 160px;">
+                      <div style="position: relative; height: 45px; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+                        <svg width="130" height="40" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M10,25 C25,20 40,5 50,15 C58,23 45,38 60,32 C75,25 90,8 105,12 C115,15 100,35 120,30" stroke="#0f172a" stroke-width="2.2" fill="none" stroke-linecap="round" />
+                        </svg>
+                      </div>
+                      <div style="width: 100%; height: 1px; background: #ea580c; opacity: 0.6; margin-bottom: 6px;"></div>
+                      <div style="font-family: 'Space Grotesk', sans-serif; font-size: 11.5px; font-weight: 700; color: #1e293b;">João Vitor Santana</div>
+                      <div style="font-family: 'Montserrat', sans-serif; font-size: 9px; color: #94a3b8; font-weight: 600; margin-top: 1px; text-transform: uppercase; letter-spacing: 0.5px;">Engenheiro de Software e CEO INCODED</div>
+                    </div>
+
+                    <!-- Direction Signature -->
+                    <div style="text-align: center; width: 160px;">
+                      <div style="position: relative; height: 45px; display: flex; align-items: center; justify-content: center; margin-bottom: 5px;">
+                        <svg width="130" height="40" viewBox="0 0 130 40" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M15,28 C30,12 45,18 55,22 C65,25 72,10 80,15 C88,20 82,32 95,25 C108,18 120,12 125,22" stroke="#0f172a" stroke-width="2.2" fill="none" stroke-linecap="round" />
+                        </svg>
+                      </div>
+                      <div style="width: 100%; height: 1px; background: #ea580c; opacity: 0.6; margin-bottom: 6px;"></div>
+                      <div style="font-family: 'Space Grotesk', sans-serif; font-size: 11.5px; font-weight: 700; color: #1e293b;">Gil Andrade</div>
+                      <div style="font-family: 'Montserrat', sans-serif; font-size: 9px; color: #94a3b8; font-weight: 600; margin-top: 1px; text-transform: uppercase; letter-spacing: 0.5px;">Professor de Robótica e CEO Makeroom</div>
+                    </div>
+                  </div>
+
+                  <!-- Right side authentic orange custom seal -->
+                  <div class="stamp-container">
+                    <svg width="110" height="110" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stop-color="#f97316" />
+                          <stop offset="30%" stop-color="#fed7aa" />
+                          <stop offset="70%" stop-color="#ea580c" />
+                          <stop offset="100%" stop-color="#9a3412" />
+                        </linearGradient>
+                      </defs>
+                      <path d="M 60,6 A 54,54 0 0,1 114,60 A 54,54 0 0,1 60,114 A 54,54 0 0,1 6,60 A 54,54 0 0,1 6,60 Z" fill="none" stroke="url(#gold-grad)" stroke-width="4.5" stroke-dasharray="8,4" />
+                      <circle cx="60" cy="60" r="47" fill="#fffaf7" stroke="url(#gold-grad)" stroke-width="1.5" />
+                      <circle cx="60" cy="60" r="41" fill="none" stroke="#ea580c" stroke-width="1" stroke-dasharray="2,5" opacity="0.6" />
+                      <circle cx="60" cy="60" r="37" fill="none" stroke="url(#gold-grad)" stroke-width="1" />
+                      
+                      <g transform="translate(60,60)">
+                        <path d="M-5,-5 L-9,-9 M5,-5 L9,-9 M-5,5 L-9,9 M5,5 L9,9" stroke="url(#gold-grad)" stroke-width="1.5" />
+                        <text y="-8" font-family="'Space Grotesk', sans-serif" font-weight="900" font-size="8.5" fill="#ea580c" text-anchor="middle" letter-spacing="1.5">MAKER</text>
+                        <line x1="-20" y1="-2" x2="20" y2="-2" stroke="#fed7aa" stroke-width="1" />
+                        <text y="10" font-family="'Space Grotesk', sans-serif" font-weight="900" font-size="9" fill="#7c2d12" text-anchor="middle" letter-spacing="0.5">APROVADO</text>
+                        <path d="M-2,-14 L0,-18 L2,-14 L5,-14 L3,-11 L4,-7 L0,-10 L-4,-7 L-3,-11 L-5,-14 Z" fill="url(#gold-grad)" transform="scale(0.55) translate(0, 36)" />
+                      </g>
+                    </svg>
+                  </div>
+                </div>
               </div>
-              <div class="stamp">APROVADO</div>
             </div>
           </div>
           <script>
@@ -164,9 +414,7 @@ export default function Profile() {
           </script>
         </body>
       </html>
-    `);
-    printWindow.document.close();
-  };
+  `;
 
   const handleUpdateAvatar = async (url: string) => {
     if (!auth.currentUser?.email) return;
@@ -275,6 +523,15 @@ export default function Profile() {
             </span>
           </div>
         </div>
+        <div className="shrink-0 w-full md:w-auto flex justify-center md:justify-end">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-5 py-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 font-black uppercase tracking-wider rounded-2xl border border-rose-100 dark:border-rose-500/20 shadow-sm transition-all active:scale-95 text-xs"
+          >
+            <LogOut size={14} />
+            <span>Sair da Conta</span>
+          </button>
+        </div>
       </header>
 
       {/* Medals Section */}
@@ -377,27 +634,23 @@ export default function Profile() {
               <Bell className="w-5 h-5 text-brand-500" /> Notificações
             </h2>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 md:p-4 bg-slate-50 dark:bg-white/5 rounded-xl md:rounded-2xl border border-slate-100 dark:border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center ${notificationPermission === 'granted' ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 dark:bg-white/5 text-slate-400'}`}>
-                    {notificationPermission === 'granted' ? <Bell className="w-4 h-4 md:w-5 md:h-5" /> : <BellOff className="w-4 h-4 md:w-5 md:h-5" />}
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">Status</p>
-                    <p className="text-xs md:text-sm text-slate-700 dark:text-slate-200 font-medium">
-                      {notificationPermission === 'granted' ? 'Ativadas' : notificationPermission === 'denied' ? 'Bloqueadas' : 'Não configuradas'}
-                    </p>
-                  </div>
-                </div>
-                {notificationPermission !== 'granted' && (
-                  <button 
-                    onClick={handleRequestPermission}
-                    className="px-3 md:px-4 py-1.5 md:py-2 bg-brand-500 text-white text-[10px] md:text-xs font-bold rounded-lg md:rounded-xl hover:bg-brand-600 transition-colors"
-                  >
-                    Ativar
-                  </button>
-                )}
-              </div>
+              {notificationPermission === 'granted' ? (
+                <button
+                  onClick={() => setNotificationPermission('denied')}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 text-sm font-bold rounded-xl md:rounded-2xl border border-slate-200 dark:border-white/10 transition-all cursor-pointer shadow-sm active:scale-95"
+                >
+                  <BellOff className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  Desativar Notificações
+                </button>
+              ) : (
+                <button
+                  onClick={handleRequestPermission}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-brand-500 hover:bg-brand-600 text-white text-sm font-bold rounded-xl md:rounded-2xl border border-transparent shadow-lg shadow-brand-500/20 transition-all cursor-pointer active:scale-95"
+                >
+                  <Bell className="w-5 h-5" />
+                  Ativar Notificações
+                </button>
+              )}
               <p className="text-[9px] md:text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed px-1">
                 {notificationPermission === 'granted' 
                   ? 'Você receberá notificações push sobre o status das suas compras e atualizações da plataforma.'
@@ -537,6 +790,21 @@ export default function Profile() {
           </div>
         )}
       </AnimatePresence>
+
+      {selectedCert && (
+        <PrintableCertificate
+          isOpen={isCertificateModalOpen}
+          onClose={() => {
+            setIsCertificateModalOpen(false);
+            setSelectedCert(null);
+          }}
+          userName={userData?.name || ''}
+          courseTitle={selectedCert.courseTitle || ''}
+          issueDate={selectedCert.issueDate}
+          grade={selectedCert.grade || 100}
+          certificateId={selectedCert.id || ''}
+        />
+      )}
     </div>
   );
 }

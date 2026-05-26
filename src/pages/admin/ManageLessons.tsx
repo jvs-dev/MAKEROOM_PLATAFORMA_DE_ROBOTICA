@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../firebase';
-import { BookOpen, Plus, Edit2, Trash2, X, Save, AlertCircle, Youtube, AlertTriangle } from 'lucide-react';
+import { BookOpen, Plus, Edit2, Trash2, X, Save, AlertCircle, Youtube, AlertTriangle, Search } from 'lucide-react';
 
 interface Lesson {
   id: string;
@@ -16,6 +16,7 @@ interface Lesson {
 
 export default function ManageLessons() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -96,6 +97,12 @@ export default function ManageLessons() {
     }
   };
 
+  const filteredLessons = lessons.filter(lesson => 
+    lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    lesson.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    lesson.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-8">
       <header className="flex items-center justify-between gap-6">
@@ -114,6 +121,19 @@ export default function ManageLessons() {
         </button>
       </header>
 
+      <div className="relative mb-6">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+        </div>
+        <input
+          type="text"
+          placeholder="Buscar aulas por título, descrição ou categoria..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-11 pr-4 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors shadow-sm"
+        />
+      </div>
+
       <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 overflow-hidden transition-colors">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -125,24 +145,15 @@ export default function ManageLessons() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-            {lessons.map((lesson) => (
+            {filteredLessons.map((lesson) => (
               <tr key={lesson.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                 <td className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-white dark:bg-white/10 rounded-xl flex items-center justify-center overflow-hidden border border-slate-100 dark:border-white/10 shadow-sm transition-colors">
-                      {lesson.imageUrl ? (
-                        <img src={lesson.imageUrl} alt="" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                      ) : (
-                        <BookOpen className="w-5 h-5 text-blue-500" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        {lesson.title}
-                        {lesson.videoUrl && <Youtube className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />}
-                      </p>
-                      <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1">{lesson.description}</p>
-                    </div>
+                  <div className="flex flex-col">
+                    <p className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      {lesson.title}
+                      {lesson.videoUrl && <Youtube className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />}
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1">{lesson.description}</p>
                   </div>
                 </td>
                 <td className="p-6">
@@ -173,8 +184,10 @@ export default function ManageLessons() {
             ))}
           </tbody>
         </table>
-        {lessons.length === 0 && !isLoading && (
-          <div className="p-12 text-center text-slate-400 dark:text-slate-500 italic">Nenhuma aula cadastrada.</div>
+        {filteredLessons.length === 0 && !isLoading && (
+          <div className="p-12 text-center text-slate-400 dark:text-slate-500 italic">
+            {searchTerm ? 'Nenhuma aula encontrada para esta busca.' : 'Nenhuma aula cadastrada.'}
+          </div>
         )}
       </div>
 
@@ -220,35 +233,35 @@ export default function ManageLessons() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-white/10 transition-colors">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+        <div className="fixed inset-0 z-[100] bg-slate-50 dark:bg-zinc-950 overflow-y-auto">
+          <div className="max-w-4xl mx-auto min-h-screen p-6 md:p-12 relative flex flex-col justify-center">
+            <div className="flex items-center justify-between mb-8 md:mb-12">
+              <h2 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
                 {editingLesson ? 'Editar Aula' : 'Nova Aula'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+              <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 bg-white dark:bg-white/5 flex items-center justify-center rounded-2xl text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors shadow-sm">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
                   <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Título</label>
                   <input 
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
+                    className="w-full p-5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors shadow-sm"
                     placeholder="Ex: Introdução ao Arduino"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Categoria</label>
                   <select 
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
+                    className="w-full p-5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors shadow-sm"
                   >
                     <option value="Básico" className="dark:bg-zinc-900">Básico</option>
                     <option value="Programação" className="dark:bg-zinc-900">Programação</option>
@@ -258,61 +271,61 @@ export default function ManageLessons() {
                 </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Descrição Curta</label>
                 <input 
                   required
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
+                  className="w-full p-5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors shadow-sm"
                   placeholder="Uma breve descrição do que será aprendido."
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Link da Capa (Opcional)</label>
                 <input 
                   value={formData.imageUrl}
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
+                  className="w-full p-5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors shadow-sm"
                   placeholder="Ex: https://link-da-imagem.com/capa.jpg"
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Link do Vídeo (YouTube)</label>
+              <div className="space-y-3">
+                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Link do Vídeo (YouTube, Udemy, MP4)</label>
                 <input 
                   value={formData.videoUrl}
                   onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                  className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
+                  className="w-full p-5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors shadow-sm"
                   placeholder="Ex: https://www.youtube.com/watch?v=..."
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Conteúdo (Markdown)</label>
                 <textarea 
                   required
                   value={formData.content}
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full h-48 p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none transition-colors"
+                  className="w-full h-64 md:h-96 p-6 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none resize-none transition-colors shadow-sm text-base leading-relaxed"
                   placeholder="Escreva o conteúdo da aula ou cole o link do vídeo..."
                 />
               </div>
 
-              <div className="flex gap-4 pt-4">
+              <div className="flex gap-4 pt-4 pb-12">
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+                  className="w-1/3 bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shadow-sm border border-slate-200 dark:border-white/5"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center justify-center gap-2"
+                  className="w-2/3 bg-brand-500 hover:bg-brand-600 text-white font-black py-5 rounded-2xl transition-all shadow-xl shadow-brand-500/20 flex items-center justify-center gap-3 tracking-widest uppercase"
                 >
-                  <Save className="w-5 h-5" /> Salvar Aula
+                  <Save className="w-6 h-6" /> Salvar Aula
                 </button>
               </div>
             </form>

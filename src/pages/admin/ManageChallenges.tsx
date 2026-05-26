@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../firebase';
-import { Zap, Plus, Edit2, Trash2, X, Save, HelpCircle, FileText, AlertTriangle, Sparkles, Loader2 } from 'lucide-react';
+import { Zap, Plus, Edit2, Trash2, X, Save, HelpCircle, FileText, AlertTriangle, Sparkles, Loader2, Eye, EyeOff, Search } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 
 interface Question {
@@ -16,17 +16,28 @@ interface Question {
   correctAnswers: string[];
 }
 
+interface CodeAssertion {
+  testName: string;
+  assertionBody: string;
+}
+
 interface Challenge {
   id: string;
   title: string;
   description: string;
-  type: 'quiz' | 'activity';
+  type: 'quiz' | 'activity' | 'code';
   points: number;
   questions?: Question[];
+  codeLanguage?: 'html' | 'javascript';
+  codeTemplate?: string;
+  codeInstructions?: string;
+  codeAssertions?: CodeAssertion[];
+  isPublic?: boolean;
 }
 
 export default function ManageChallenges() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -38,9 +49,14 @@ export default function ManageChallenges() {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    type: 'quiz' as 'quiz' | 'activity',
+    type: 'quiz' as 'quiz' | 'activity' | 'code',
     points: 0,
     questions: [] as Question[],
+    codeLanguage: 'html' as 'html' | 'javascript',
+    codeTemplate: '',
+    codeInstructions: '',
+    codeAssertions: [] as CodeAssertion[],
+    isPublic: true,
   });
 
   useEffect(() => {
@@ -68,10 +84,26 @@ export default function ManageChallenges() {
         type: challenge.type,
         points: challenge.points,
         questions: challenge.questions || [],
+        codeLanguage: challenge.codeLanguage || 'html',
+        codeTemplate: challenge.codeTemplate || '',
+        codeInstructions: challenge.codeInstructions || '',
+        codeAssertions: challenge.codeAssertions || [],
+        isPublic: challenge.isPublic ?? true,
       });
     } else {
       setEditingChallenge(null);
-      setFormData({ title: '', description: '', type: 'quiz', points: 0, questions: [] });
+      setFormData({ 
+        title: '', 
+        description: '', 
+        type: 'quiz', 
+        points: 0, 
+        questions: [],
+        codeLanguage: 'html',
+        codeTemplate: '',
+        codeInstructions: '',
+        codeAssertions: [],
+        isPublic: true,
+      });
     }
     setIsModalOpen(true);
     setShowAiInput(false);
@@ -195,9 +227,16 @@ export default function ManageChallenges() {
     }
     try {
       if (editingChallenge) {
-        await updateDoc(doc(db, 'challenges', editingChallenge.id), formData);
+        await updateDoc(doc(db, 'challenges', editingChallenge.id), {
+          ...formData,
+          updatedAt: serverTimestamp()
+        });
       } else {
-        await addDoc(collection(db, 'challenges'), formData);
+        await addDoc(collection(db, 'challenges'), {
+          ...formData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
       }
       setIsModalOpen(false);
       fetchChallenges();
@@ -239,6 +278,12 @@ export default function ManageChallenges() {
     }
   };
 
+  const filteredChallenges = challenges.filter(challenge => 
+    challenge.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    challenge.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    challenge.type.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-8">
       <header className="flex items-center justify-between gap-6">
@@ -257,9 +302,23 @@ export default function ManageChallenges() {
         </button>
       </header>
 
-      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 overflow-x-auto transition-colors">
-        <table className="w-full text-left border-collapse min-w-[600px]">
-          <thead>
+      <div className="relative mb-6">
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-slate-400 dark:text-slate-500" />
+        </div>
+        <input
+          type="text"
+          placeholder="Buscar desafios por título, descrição ou tipo..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-11 pr-4 py-3 bg-white dark:bg-zinc-900 border border-slate-100 dark:border-white/10 dark:text-white rounded-3xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors shadow-sm"
+        />
+      </div>
+
+      <div className="bg-white dark:bg-zinc-900 rounded-3xl shadow-sm border border-slate-100 dark:border-white/10 overflow-hidden transition-colors">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+            <thead>
             <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
               <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Desafio</th>
               <th className="p-6 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tipo</th>
@@ -268,30 +327,39 @@ export default function ManageChallenges() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-            {challenges.map((challenge) => (
+            {filteredChallenges.map((challenge) => (
               <tr key={challenge.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors group">
                 <td className="p-6">
                   <div className="flex items-center gap-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      challenge.type === 'quiz' ? 'bg-blue-50 dark:bg-blue-500/10' : 'bg-purple-50 dark:bg-purple-500/10'
+                      challenge.type === 'quiz' ? 'bg-blue-50 dark:bg-blue-500/10' : (challenge.type === 'code' ? 'bg-indigo-50 dark:bg-indigo-500/10' : 'bg-purple-50 dark:bg-purple-500/10')
                     }`}>
                       {challenge.type === 'quiz' ? (
                         <HelpCircle className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                      ) : challenge.type === 'code' ? (
+                        <span className="text-indigo-500 dark:text-indigo-400 font-extrabold text-sm">JS</span>
                       ) : (
                         <FileText className="w-5 h-5 text-purple-500 dark:text-purple-400" />
                       )}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-900 dark:text-white">{challenge.title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-slate-900 dark:text-white">{challenge.title}</p>
+                        {challenge.isPublic === false && (
+                          <div className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-slate-100 dark:bg-white/5 text-slate-500" title="Não aparece na página de desafios">
+                            <EyeOff className="w-3 h-3" /> Privado
+                          </div>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-400 dark:text-slate-500 line-clamp-1">{challenge.description}</p>
                     </div>
                   </div>
                 </td>
                 <td className="p-6">
                   <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest ${
-                    challenge.type === 'quiz' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                    challenge.type === 'quiz' ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400' : (challenge.type === 'code' ? 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400')
                   }`}>
-                    {challenge.type === 'quiz' ? 'Quiz' : 'Atividade'}
+                    {challenge.type === 'quiz' ? 'Quiz' : (challenge.type === 'code' ? 'Playground' : 'Atividade')}
                   </span>
                 </td>
                 <td className="p-6 font-bold text-brand-600 dark:text-brand-400">
@@ -320,8 +388,11 @@ export default function ManageChallenges() {
             ))}
           </tbody>
         </table>
-        {challenges.length === 0 && !isLoading && (
-          <div className="p-12 text-center text-slate-400 dark:text-slate-500 italic">Nenhum desafio cadastrado.</div>
+        </div>
+        {filteredChallenges.length === 0 && !isLoading && (
+          <div className="p-12 text-center text-slate-400 dark:text-slate-500 italic">
+            {searchTerm ? 'Nenhum desafio encontrado para esta busca.' : 'Nenhum desafio cadastrado.'}
+          </div>
         )}
       </div>
 
@@ -368,11 +439,11 @@ export default function ManageChallenges() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-white/10 transition-colors">
-            <div className="flex items-center justify-between mb-8">
+        <div className="fixed inset-0 z-[100] bg-slate-50 dark:bg-zinc-950 overflow-y-auto">
+          <div className="max-w-4xl mx-auto min-h-screen p-6 md:p-12 relative flex flex-col justify-center">
+            <div className="flex items-center justify-between mb-8 md:mb-12">
               <div className="flex items-center gap-4">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                <h2 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
                   {editingChallenge ? 'Editar Desafio' : 'Novo Desafio'}
                 </h2>
                 {!editingChallenge && formData.type === 'quiz' && (
@@ -386,7 +457,7 @@ export default function ManageChallenges() {
                   </button>
                 )}
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+              <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 bg-white dark:bg-white/5 flex items-center justify-center rounded-2xl text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors shadow-sm">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -440,11 +511,12 @@ export default function ManageChallenges() {
                   <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Tipo</label>
                   <select 
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'quiz' | 'activity' })}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'quiz' | 'activity' | 'code' })}
                     className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
                   >
                     <option value="quiz" className="dark:bg-zinc-900">Quiz</option>
                     <option value="activity" className="dark:bg-zinc-900">Atividade</option>
+                    <option value="code" className="dark:bg-zinc-900">💻 Playground de Código</option>
                   </select>
                 </div>
               </div>
@@ -460,17 +532,38 @@ export default function ManageChallenges() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Pontuação</label>
-                <div className="relative">
-                  <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
-                  <input 
-                    required
-                    type="number"
-                    value={isNaN(formData.points) ? '' : formData.points}
-                    onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) })}
-                    className="w-full p-3 pl-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Pontuação</label>
+                  <div className="relative">
+                    <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                    <input 
+                      required
+                      type="number"
+                      value={isNaN(formData.points) ? '' : formData.points}
+                      onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) })}
+                      className="w-full p-3 pl-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Visibilidade</label>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">Mostrar na página de Desafios</span>
+                      <span className="text-[10px] text-slate-500">Se desativado, só aparece nos cursos.</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer"
+                        checked={formData.isPublic}
+                        onChange={(e) => setFormData({ ...formData, isPublic: e.target.checked })}
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-500/20 rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-brand-500"></div>
+                    </label>
+                  </div>
                 </div>
               </div>
 
@@ -547,19 +640,140 @@ export default function ManageChallenges() {
                 </div>
               )}
 
-              <div className="flex gap-4 pt-4">
+              {formData.type === 'code' && (
+                <div className="space-y-6 pt-4 border-t border-slate-100 dark:border-white/10">
+                  <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>💻 Configuração do Playground de Código</span>
+                    <span className="text-xs bg-brand-500 text-white px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Premium Mode</span>
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Linguagem</label>
+                      <select
+                        value={formData.codeLanguage}
+                        onChange={(e) => setFormData({ ...formData, codeLanguage: e.target.value as 'html' | 'javascript' })}
+                        className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none"
+                      >
+                        <option value="html" className="dark:bg-zinc-900 font-bold">HTML5 (HTML + CSS + JS)</option>
+                        <option value="javascript" className="dark:bg-zinc-900 font-bold">JavaScript Puro (Console/Lógica)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Instruções Práticas (Markdown)</label>
+                    <textarea
+                      value={formData.codeInstructions}
+                      onChange={(e) => setFormData({ ...formData, codeInstructions: e.target.value })}
+                      className="w-full h-32 p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none resize-none font-mono text-xs"
+                      placeholder="Ex: # Instruções do Desafio\n\nCrie uma tag `<h1>` que contenha o texto 'Makeroom'.\nOu imprima no console com `console.log('Olá mundo!')`"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Código Inicial (Template)</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const boilerplate = formData.codeLanguage === 'html' 
+                            ? `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; text-align: center; padding-top: 50px; }\n    button { background: #6366f1; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }\n  </style>\n</head>\n<body>\n  <!-- Escreva seu código aqui -->\n  \n</body>\n</html>`
+                            : `// Escreva sua função aqui\nfunction somar(a, b) {\n  return a + b;\n}`;
+                          setFormData({ ...formData, codeTemplate: boilerplate });
+                        }}
+                        className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                      >
+                        Carregar Boilerplate Clássico
+                      </button>
+                    </div>
+                    <textarea
+                      value={formData.codeTemplate}
+                      onChange={(e) => setFormData({ ...formData, codeTemplate: e.target.value })}
+                      className="w-full h-48 p-3 bg-slate-900 text-slate-100 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none font-mono text-xs resize-y"
+                      placeholder="<!-- Código inicial que aparecerá para o aluno -->"
+                    />
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-white/5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Casos de Teste / Asserções Automáticas</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newAssertions = [...(formData.codeAssertions || [])];
+                          newAssertions.push({ testName: '', assertionBody: '' });
+                          setFormData({ ...formData, codeAssertions: newAssertions });
+                        }}
+                        className="text-xs text-brand-600 dark:text-brand-400 font-bold hover:underline flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Adicionar Teste
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {(formData.codeAssertions || []).map((assertion, index) => (
+                        <div key={index} className="flex flex-col md:flex-row gap-3 bg-slate-50 dark:bg-white/5 p-4 rounded-xl border border-slate-200 dark:border-white/10 relative">
+                          <div className="flex-1 space-y-2">
+                            <input
+                              type="text"
+                              value={assertion.testName}
+                              onChange={(e) => {
+                                const newAssertions = [...(formData.codeAssertions || [])];
+                                newAssertions[index].testName = e.target.value;
+                                setFormData({ ...formData, codeAssertions: newAssertions });
+                              }}
+                              placeholder="Ex: Deve conter tag H1 com id 'titulo'"
+                              className="w-full p-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-lg text-xs"
+                              required
+                            />
+                            <input
+                              type="text"
+                              value={assertion.assertionBody}
+                              onChange={(e) => {
+                                const newAssertions = [...(formData.codeAssertions || [])];
+                                newAssertions[index].assertionBody = e.target.value;
+                                setFormData({ ...formData, codeAssertions: newAssertions });
+                              }}
+                              placeholder="Fórmula JS, Ex: document.querySelector('h1') || logs.join('').includes('olá')"
+                              className="w-full p-2 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-lg text-xs font-mono"
+                              required
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newAssertions = [...(formData.codeAssertions || [])];
+                              newAssertions.splice(index, 1);
+                              setFormData({ ...formData, codeAssertions: newAssertions });
+                            }}
+                            className="bg-red-50 hover:bg-red-100 text-red-500 p-2 rounded-lg self-center dark:bg-red-500/10 dark:hover:bg-red-500/20"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      {(formData.codeAssertions || []).length === 0 && (
+                        <p className="text-xs text-slate-400 dark:text-slate-500 italic text-center">Nenhum teste configurado. O aluno poderá enviar qualquer código funcional.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-4 pt-4 pb-12">
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+                  className="w-1/3 bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shadow-sm border border-slate-200 dark:border-white/5"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center justify-center gap-2"
+                  className="w-2/3 bg-brand-500 hover:bg-brand-600 text-white font-black py-5 rounded-2xl transition-all shadow-xl shadow-brand-500/20 flex items-center justify-center gap-3 tracking-widest uppercase"
                 >
-                  <Save className="w-5 h-5" /> Salvar Desafio
+                  <Save className="w-6 h-6" /> Salvar Desafio
                 </button>
               </div>
             </form>

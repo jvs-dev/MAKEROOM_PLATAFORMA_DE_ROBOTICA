@@ -48,6 +48,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [userTeamId, setUserTeamId] = useState<string | null>(null);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [cameFromCourseId, setCameFromCourseId] = useState<string | null>(null);
   const [userData, setUserData] = useState<any>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -63,6 +64,9 @@ export default function Home() {
       const lesson = lessons.find(l => l.id === location.state.lessonId);
       if (lesson) {
         setSelectedLesson(lesson);
+        if (location.state.courseId) {
+          setCameFromCourseId(location.state.courseId);
+        }
         // Clear state to prevent re-opening on refresh
         navigate(location.pathname, { replace: true, state: {} });
       }
@@ -304,6 +308,9 @@ export default function Home() {
       
       setSelectedLesson(null);
       setToast({ message: 'Aula concluída! +10 pontos 🚀', type: 'success' });
+      if (cameFromCourseId) {
+        navigate(`/courses/${cameFromCourseId}`);
+      }
 
       // Check for certificate eligibility
       const coursesSnap = await getDocs(collection(db, 'courses'));
@@ -680,10 +687,12 @@ export default function Home() {
 
                   {/* Top Badges */}
                   <div className="absolute top-4 left-4 right-4 flex justify-between">
-                    <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2 border border-slate-200/50 dark:border-white/10 shadow-sm">
-                      <Award size={14} className="text-brand-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Certificado</span>
-                    </div>
+                    {course.hasCertificate && (
+                      <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-2 border border-slate-200/50 dark:border-white/10 shadow-sm">
+                        <Award size={14} className="text-brand-500" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-800 dark:text-slate-200">Certificado</span>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Modules count overlay at bottom */}
@@ -771,7 +780,12 @@ export default function Home() {
               {/* Top Navigation */}
               <div className="flex items-center justify-between mb-12">
                 <button 
-                  onClick={() => setSelectedLesson(null)}
+                  onClick={() => {
+                    setSelectedLesson(null);
+                    if (cameFromCourseId) {
+                      navigate(`/courses/${cameFromCourseId}`);
+                    }
+                  }}
                   className="group flex items-center gap-3 glass px-6 py-3 rounded-2xl hover:bg-white/5 transition-all text-slate-400 hover:text-white"
                 >
                   <ChevronRight className="rotate-180 group-hover:-translate-x-1 transition-transform" />
@@ -809,6 +823,14 @@ export default function Home() {
                           allowFullScreen
                           title={selectedLesson.title}
                         />
+                      ) : selectedLesson.videoUrl.includes('.mp4') || selectedLesson.videoUrl.includes('udemycdn.com') ? (
+                        <video 
+                          src={selectedLesson.videoUrl}
+                          controls
+                          controlsList="nodownload"
+                          className="w-full h-full object-contain bg-black"
+                          preload="metadata"
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center bg-brand-950/20 flex-col gap-6">
                           <Youtube size={64} className="text-red-500 animate-pulse" />
@@ -820,7 +842,7 @@ export default function Home() {
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-3 px-8 py-4 bg-red-500 text-white font-black rounded-2xl hover:scale-105 transition-all text-xs tracking-widest shadow-2xl"
                             >
-                              ASSISTIR NO YOUTUBE <ExternalLink size={16} />
+                              ASSISTIR NO LINK ORIGINAL <ExternalLink size={16} />
                             </a>
                           </div>
                         </div>

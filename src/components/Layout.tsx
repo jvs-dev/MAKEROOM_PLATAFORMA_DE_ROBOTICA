@@ -21,7 +21,8 @@ import {
   ChevronRight,
   Bell,
   Instagram,
-  PlaySquare
+  PlaySquare,
+  MessageCircle
 } from 'lucide-react';
 import NotificationCenter from './NotificationCenter';
 import { clsx, type ClassValue } from 'clsx';
@@ -100,7 +101,10 @@ export default function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-deep-black dark:text-slate-100 flex flex-col md:flex-row font-sans selection:bg-brand-500/30 selection:text-brand-600 dark:selection:text-brand-300">
+    <div className={cn(
+      "bg-slate-50 text-slate-900 dark:bg-deep-black dark:text-slate-100 flex flex-col md:flex-row font-sans selection:bg-brand-500/30 selection:text-brand-600 dark:selection:text-brand-300",
+      isTeamsPage ? "h-screen md:h-screen lg:h-screen overflow-hidden" : "min-h-screen"
+    )}>
       {/* Sticky Top Header (Mobile & Tablet) */}
       {!isTeamsPage && (
         <header className="md:hidden glass-strong p-3 flex items-center justify-between sticky top-0 z-50 border-b border-slate-200 dark:border-white/5">
@@ -253,15 +257,23 @@ export default function Layout() {
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-h-screen relative overflow-x-hidden">
+      <main className={cn(
+        "flex-1 flex flex-col relative",
+        isTeamsPage ? "h-screen md:h-screen lg:h-screen overflow-hidden" : "min-h-screen overflow-x-hidden"
+      )}>
         {/* Sticky Desktop Header */}
         {!isTeamsPage && (
           <header className="hidden md:flex h-20 items-center justify-end px-8 glass sticky top-0 z-40 border-b border-slate-200 dark:border-white/5">
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 px-4 py-2 rounded-full border border-slate-200 dark:border-white/5">
-                <Zap size={14} className="text-brand-600 dark:text-brand-400 animate-pulse" />
-                <span className="text-xs font-mono font-bold tracking-widest text-slate-500 dark:text-slate-400 uppercase">System Online</span>
-              </div>
+              <a 
+                href="https://wa.me/5571991895994"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-all duration-300 font-medium text-xs uppercase cursor-pointer"
+              >
+                <MessageCircle size={14} />
+                <span>Suporte</span>
+              </a>
               <NotificationCenter />
               <div className="h-8 w-px bg-slate-200 dark:bg-white/10" />
               <Link to="/profile" className="flex items-center gap-3 group">
@@ -278,7 +290,7 @@ export default function Layout() {
           </header>
         )}
 
-        <section className={cn("flex-1 relative", isTeamsPage ? "p-0" : "px-2 py-8 md:p-8")}>
+        <section className={cn("flex-1 relative", isTeamsPage ? "h-full p-0 overflow-hidden" : "px-2 py-8 md:p-8")}>
           {/* Animated Background Particle/Circuit Overlay */}
           <div className="absolute inset-0 -z-10 opacity-[0.03] dark:opacity-[0.03] pointer-events-none select-none">
             <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">

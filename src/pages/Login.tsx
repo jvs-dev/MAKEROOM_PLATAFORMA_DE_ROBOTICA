@@ -5,7 +5,7 @@ import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Instagram } from 'lucide-react';
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
@@ -304,10 +304,28 @@ export default function Login() {
               <button 
                 type="button"
                 onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-                className="text-brand-600 hover:text-brand-700 font-bold transition-colors"
+                className="text-brand-600 hover:text-brand-700 font-bold transition-colors cursor-pointer"
               >
                 {mode === 'login' ? 'Inscrever-se' : 'Entrar'}
               </button>
+            </motion.div>
+
+            {/* Instagram Link */}
+            <motion.div 
+              initial={{opacity: 0}} 
+              animate={{opacity: 1}} 
+              transition={{delay: 0.8}} 
+              className="mt-6 pt-6 border-t border-slate-100 flex justify-center"
+            >
+              <a 
+                href="https://www.instagram.com/robomind_br" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center justify-center w-10 h-10 bg-slate-50 hover:bg-slate-150 text-slate-500 hover:text-brand-600 border border-slate-200/60 rounded-xl transition-all duration-300 cursor-pointer shadow-sm active:scale-95"
+                title="Siga-nos no Instagram"
+              >
+                <Instagram size={18} className="text-pink-600" />
+              </a>
             </motion.div>
 
           </div>

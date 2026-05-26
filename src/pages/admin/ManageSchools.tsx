@@ -203,58 +203,58 @@ export default function ManageSchools() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 p-8 rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-white/10 transition-colors">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+        <div className="fixed inset-0 z-[100] bg-slate-50 dark:bg-zinc-950 overflow-y-auto">
+          <div className="max-w-4xl mx-auto min-h-screen p-6 md:p-12 relative flex flex-col justify-center">
+            <div className="flex items-center justify-between mb-8 md:mb-12">
+              <h2 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
                 {editingSchool ? 'Editar Escola' : 'Nova Escola'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
+              <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 bg-white dark:bg-white/5 flex items-center justify-center rounded-2xl text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors shadow-sm">
                 <X className="w-6 h-6" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Nome da Escola</label>
                 <input 
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
+                  className="w-full p-5 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors shadow-sm"
                   placeholder="Ex: Colégio Maker"
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Emails dos Administradores (Opcional)</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+                  <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-500" />
                   <input 
                     value={adminEmailsStr}
                     onChange={(e) => setAdminEmailsStr(e.target.value)}
-                    className="w-full p-3 pl-10 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors"
+                    className="w-full p-5 pl-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 dark:text-white rounded-2xl focus:ring-2 focus:ring-brand-500 outline-none transition-colors shadow-sm"
                     placeholder="admin1@escola.com, admin2@escola.com"
                   />
                 </div>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
                   Adicione os e-mails dos usuários que terão permissão para gerenciar esta escola, separados por vírgula.
                 </p>
               </div>
 
-              <div className="flex gap-4 pt-4">
+              <div className="flex gap-4 pt-4 pb-12">
                 <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-3 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+                  className="w-1/3 bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shadow-sm border border-slate-200 dark:border-white/5"
                 >
                   Cancelar
                 </button>
                 <button 
                   type="submit"
-                  className="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 rounded-2xl transition-all shadow-lg shadow-brand-100 dark:shadow-none flex items-center justify-center gap-2"
+                  className="w-2/3 bg-brand-500 hover:bg-brand-600 text-white font-black py-5 rounded-2xl transition-all shadow-xl shadow-brand-500/20 flex items-center justify-center gap-3 tracking-widest uppercase"
                 >
-                  <Save className="w-5 h-5" /> Salvar Escola
+                  <Save className="w-6 h-6" /> Salvar Escola
                 </button>
               </div>
             </form>

@@ -14,7 +14,8 @@ import {
   Loader2,
   ChevronRight,
   Award,
-  GraduationCap
+  GraduationCap,
+  Save
 } from 'lucide-react';
 
 interface Lesson {
@@ -34,6 +35,8 @@ interface Course {
   description: string;
   lessonIds: string[];
   challengeIds: string[];
+  contentSequence?: {type: 'lesson' | 'quiz', id: string, title?: string}[];
+  hasCertificate?: boolean;
   pointsReward: number;
   thumbnail: string;
 }
@@ -54,6 +57,8 @@ export default function ManageCourses() {
   const [description, setDescription] = useState('');
   const [selectedLessons, setSelectedLessons] = useState<string[]>([]);
   const [selectedQuizzes, setSelectedQuizzes] = useState<string[]>([]);
+  const [contentSequence, setContentSequence] = useState<{type: 'lesson' | 'quiz', id: string, title?: string}[]>([]);
+  const [hasCertificate, setHasCertificate] = useState(false);
   const [pointsReward, setPointsReward] = useState(100);
   const [thumbnail, setThumbnail] = useState('');
 
@@ -73,7 +78,6 @@ export default function ManageCourses() {
       const challengesSnap = await getDocs(collection(db, 'challenges'));
       setQuizzes(challengesSnap.docs
         .map(doc => ({ id: doc.id, title: doc.data().title, type: doc.data().type }))
-        .filter(c => c.type === 'quiz')
       );
     } catch (err) {
       handleFirestoreError(err, OperationType.LIST, 'courses');
@@ -91,6 +95,8 @@ export default function ManageCourses() {
       description,
       lessonIds: selectedLessons,
       challengeIds: selectedQuizzes,
+      contentSequence,
+      hasCertificate,
       pointsReward,
       thumbnail,
       updatedAt: serverTimestamp()
@@ -134,6 +140,8 @@ export default function ManageCourses() {
     setDescription('');
     setSelectedLessons([]);
     setSelectedQuizzes([]);
+    setContentSequence([]);
+    setHasCertificate(false);
     setPointsReward(100);
     setThumbnail('');
   };
@@ -144,21 +152,55 @@ export default function ManageCourses() {
     setDescription(course.description);
     setSelectedLessons(course.lessonIds || []);
     setSelectedQuizzes(course.challengeIds || []);
+    setContentSequence(course.contentSequence || []);
+    setHasCertificate(course.hasCertificate || false);
     setPointsReward(course.pointsReward || 100);
     setThumbnail(course.thumbnail || '');
     setIsModalOpen(true);
   };
 
-  const toggleLesson = (id: string) => {
-    setSelectedLessons(prev => 
-      prev.includes(id) ? prev.filter(l => l !== id) : [...prev, id]
-    );
+  const toggleLesson = (id: string, lessonTitle?: string) => {
+    setSelectedLessons(prev => {
+      const isSelected = prev.includes(id);
+      if (isSelected) {
+        setContentSequence(seq => seq.filter(item => !(item.type === 'lesson' && item.id === id)));
+        return prev.filter(l => l !== id);
+      } else {
+        setContentSequence(seq => {
+          if (seq.some(item => item.type === 'lesson' && item.id === id)) return seq;
+          return [...seq, { type: 'lesson', id, title: lessonTitle }];
+        });
+        return [...prev, id];
+      }
+    });
   };
 
-  const toggleQuiz = (id: string) => {
-    setSelectedQuizzes(prev => 
-      prev.includes(id) ? prev.filter(q => q !== id) : [...prev, id]
-    );
+  const toggleQuiz = (id: string, quizTitle?: string) => {
+    setSelectedQuizzes(prev => {
+      const isSelected = prev.includes(id);
+      if (isSelected) {
+        setContentSequence(seq => seq.filter(item => !(item.type === 'quiz' && item.id === id)));
+        return prev.filter(q => q !== id);
+      } else {
+        setContentSequence(seq => {
+          if (seq.some(item => item.type === 'quiz' && item.id === id)) return seq;
+          return [...seq, { type: 'quiz', id, title: quizTitle }];
+        });
+        return [...prev, id];
+      }
+    });
+  };
+
+  const moveContentItem = (index: number, direction: 'up' | 'down') => {
+    setContentSequence(prev => {
+      const newSeq = [...prev];
+      if (direction === 'up' && index > 0) {
+        [newSeq[index - 1], newSeq[index]] = [newSeq[index], newSeq[index - 1]];
+      } else if (direction === 'down' && index < newSeq.length - 1) {
+        [newSeq[index], newSeq[index + 1]] = [newSeq[index + 1], newSeq[index]];
+      }
+      return newSeq;
+    });
   };
 
   const filteredCourses = courses.filter(c => 
@@ -211,9 +253,11 @@ export default function ManageCourses() {
                     <BookOpen className="w-12 h-12 text-slate-300 dark:text-slate-700" />
                   </div>
                 )}
-                <div className="absolute top-4 right-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1 shadow-sm">
-                  <Award className="w-3 h-3" /> Certificado
-                </div>
+                {course.hasCertificate && (
+                  <div className="absolute top-4 right-4 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-brand-600 dark:text-brand-400 flex items-center gap-1 shadow-sm">
+                    <Award className="w-3 h-3" /> Certificado
+                  </div>
+                )}
               </div>
               <div className="p-6">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">{course.title}</h3>
@@ -292,18 +336,18 @@ export default function ManageCourses() {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-zinc-900 rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-100 dark:border-white/10 transition-colors">
-            <div className="p-6 border-b border-slate-100 dark:border-white/10 flex items-center justify-between bg-slate-50/50 dark:bg-white/5 transition-colors">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+        <div className="fixed inset-0 z-[100] bg-slate-50 dark:bg-zinc-950 overflow-y-auto">
+          <div className="max-w-4xl mx-auto min-h-screen p-6 md:p-12 relative flex flex-col justify-center">
+            <div className="flex items-center justify-between mb-8 md:mb-12">
+              <h2 className="text-3xl md:text-5xl font-black text-slate-900 dark:text-white tracking-tight">
                 {editingCourse ? 'Editar Curso' : 'Novo Curso'}
               </h2>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-white dark:hover:bg-white/10 rounded-full transition-colors">
-                <X className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+              <button onClick={() => setIsModalOpen(false)} className="w-12 h-12 bg-white dark:bg-white/5 flex items-center justify-center rounded-2xl text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors shadow-sm">
+                <X className="w-6 h-6" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+            <form onSubmit={handleSave} className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
                   <div>
@@ -364,7 +408,7 @@ export default function ManageCourses() {
                         <button
                           key={lesson.id}
                           type="button"
-                          onClick={() => toggleLesson(lesson.id)}
+                          onClick={() => toggleLesson(lesson.id, lesson.title)}
                           className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
                             selectedLessons.includes(lesson.id)
                               ? 'bg-brand-50 dark:bg-brand-500/20 border-brand-200 dark:border-brand-500/30 text-brand-700 dark:text-brand-400'
@@ -379,41 +423,108 @@ export default function ManageCourses() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Selecionar Quizes ({selectedQuizzes.length})</label>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Selecionar Desafios ({selectedQuizzes.length})</label>
                     <div className="bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 p-4 max-h-[200px] overflow-y-auto space-y-2 transition-colors">
                       {quizzes.map(quiz => (
                         <button
                           key={quiz.id}
                           type="button"
-                          onClick={() => toggleQuiz(quiz.id)}
+                          onClick={() => toggleQuiz(quiz.id, quiz.title)}
                           className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
                             selectedQuizzes.includes(quiz.id)
                               ? 'bg-purple-50 dark:bg-purple-500/20 border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-400'
                               : 'bg-white dark:bg-white/5 border-slate-100 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/20'
                           }`}
                         >
-                          <span className="text-sm font-medium truncate">{quiz.title}</span>
-                          {selectedQuizzes.includes(quiz.id) && <Check className="w-4 h-4" />}
+                          <span className="text-sm font-medium truncate flex max-w-[90%] items-center gap-2">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                              quiz.type === 'quiz' ? 'bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400' : 
+                              quiz.type === 'code' ? 'bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400' :
+                              'bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400'
+                            }`}>
+                              {quiz.type === 'quiz' ? 'Quiz' : quiz.type === 'code' ? 'Código' : 'Atividade'}
+                            </span>
+                            <span className="truncate">{quiz.title}</span>
+                          </span>
+                          {selectedQuizzes.includes(quiz.id) && <Check className="w-4 h-4 shrink-0" />}
                         </button>
                       ))}
                     </div>
                   </div>
+                  <div className="flex items-center justify-between p-4 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">Certificado de Conclusão</h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Gerar certificado quando o aluno finalizar este curso</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer"
+                        checked={hasCertificate}
+                        onChange={(e) => setHasCertificate(e.target.checked)}
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-500/20 rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-brand-500"></div>
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-4 pt-6 border-t border-slate-100 dark:border-white/10">
-                <button
+              {contentSequence.length > 0 && (
+                <div className="space-y-3 pt-6 border-t border-slate-100 dark:border-white/10">
+                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Sequência do Curso</label>
+                  <div className="bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 p-4 space-y-2">
+                    {contentSequence.map((item, index) => (
+                      <div key={`${item.type}-${item.id}-${index}`} className="flex items-center justify-between p-3 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-white/10 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold ${item.type === 'lesson' ? 'bg-brand-500' : 'bg-purple-500'}`}>
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white">{item.title || item.id}</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{item.type === 'lesson' ? 'Aula' : 'Quiz'}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveContentItem(index, 'up')}
+                            disabled={index === 0}
+                            className="p-1 text-slate-400 hover:text-brand-500 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveContentItem(index, 'down')}
+                            disabled={index === contentSequence.length - 1}
+                            className="p-1 text-slate-400 hover:text-brand-500 disabled:opacity-30 disabled:hover:text-slate-400 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-4 pt-4 pb-12">
+                <button 
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-3 text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-50 dark:hover:bg-white/5 rounded-xl transition-colors"
+                  className="w-1/3 bg-white dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-5 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/10 transition-colors shadow-sm border border-slate-200 dark:border-white/5"
                 >
                   Cancelar
                 </button>
-                <button
+                <button 
                   type="submit"
-                  className="bg-brand-500 text-white px-8 py-3 rounded-xl font-bold hover:bg-brand-600 transition-all shadow-lg shadow-brand-100 dark:shadow-none"
+                  className="w-2/3 bg-brand-500 hover:bg-brand-600 text-white font-black py-5 rounded-2xl transition-all shadow-xl shadow-brand-500/20 flex items-center justify-center gap-3 tracking-widest uppercase"
                 >
-                  {editingCourse ? 'Salvar Alterações' : 'Criar Curso'}
+                  <Save className="w-6 h-6" /> {editingCourse ? 'Salvar Curso' : 'Criar Curso'}
                 </button>
               </div>
             </form>

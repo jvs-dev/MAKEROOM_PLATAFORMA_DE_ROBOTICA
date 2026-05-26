@@ -186,7 +186,7 @@ app.post("/api/admin/chat", async (req, res) => {
 
     const createStoreItem = {
       name: "createStoreItem",
-      description: "Creates a new item in the store (products collection). Only use when the user provides enough information like name, price, stock, and category. Ask for missing details if necessary.",
+      description: "Creates a new item in the store (products collection). If the user doesn't provide price, stock, category, or description, generate realistic and creative values for them automatically.",
       parameters: {
         type: Type.OBJECT,
         properties: {
@@ -202,7 +202,7 @@ app.post("/api/admin/chat", async (req, res) => {
 
     const createLesson = {
       name: "createLesson",
-      description: "Creates a new lesson. Requires title, description, content, category, and points.",
+      description: "Creates a new lesson. If the user doesn't provide description, content, category, or points, dynamically create and invent full detailed content and realistic values for them.",
       parameters: {
         type: Type.OBJECT,
         properties: {
@@ -210,7 +210,8 @@ app.post("/api/admin/chat", async (req, res) => {
           description: { type: Type.STRING },
           content: { type: Type.STRING },
           category: { type: Type.STRING },
-          points: { type: Type.NUMBER }
+          points: { type: Type.NUMBER },
+          videoUrl: { type: Type.STRING, description: "Optional video URL (e.g. youtube/vimeo or direct mp4 file)" }
         },
         required: ["title", "description", "content", "category", "points"]
       }
@@ -218,13 +219,13 @@ app.post("/api/admin/chat", async (req, res) => {
 
     const createChallenge = {
       name: "createChallenge",
-      description: "Creates a new challenge (quiz or activity). Se o usuário pedir um quiz e não enviar perguntas, você mesmo deve gerar uma lista rica de perguntas e respostas.",
+      description: "Creates a new challenge. Must set type to 'code', 'quiz', or 'activity'. Generate any missing properties dynamically (description, points, codeTemplate, codeInstructions, codeAssertions, or questions). Do NOT ask the user for missing details, create them yourself based on the title/topic.",
       parameters: {
         type: Type.OBJECT,
         properties: {
           title: { type: Type.STRING },
           description: { type: Type.STRING },
-          type: { type: Type.STRING, description: "Must be 'quiz' or 'activity'" },
+          type: { type: Type.STRING, description: "Must be EXACTLY 'quiz', 'activity' or 'code'. If the user asks for a code challenge, this MUST be 'code'." },
           points: { type: Type.NUMBER },
           questions: {
             type: Type.ARRAY,
@@ -251,6 +252,21 @@ app.post("/api/admin/chat", async (req, res) => {
               },
               required: ["text", "options", "correctAnswers"]
             }
+          },
+          codeLanguage: { type: Type.STRING, description: "Only if type is 'code'. 'javascript' or 'html'" },
+          codeTemplate: { type: Type.STRING, description: "Only if type is 'code'. Starter code template" },
+          codeInstructions: { type: Type.STRING, description: "Only if type is 'code'. Instructions for the student" },
+          codeAssertions: {
+            type: Type.ARRAY,
+            description: "Only if type is 'code'. Array of tests to evaluate the student's code",
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                testName: { type: Type.STRING, description: "Name/description of the test" },
+                assertionBody: { type: Type.STRING, description: "The JS assertion code evaluating the result" }
+              },
+              required: ["testName", "assertionBody"]
+            }
           }
         },
         required: ["title", "description", "type", "points"]
@@ -259,7 +275,7 @@ app.post("/api/admin/chat", async (req, res) => {
 
     const createCourse = {
       name: "createCourse",
-      description: "Creates a new course.",
+      description: "Creates a new course. Generate and invent any missing details like description and pointsReward based on the course title.",
       parameters: {
         type: Type.OBJECT,
         properties: {
@@ -273,7 +289,7 @@ app.post("/api/admin/chat", async (req, res) => {
 
     const createAnnouncement = {
       name: "createAnnouncement",
-      description: "Creates a new announcement banner for the home page.",
+      description: "Creates a new announcement banner for the home page. Generate missing details if necessary. If no imageUrl provided, generate a creative placeholder URL (e.g. from unsplash).",
       parameters: {
         type: Type.OBJECT,
         properties: {
@@ -289,7 +305,7 @@ app.post("/api/admin/chat", async (req, res) => {
       model: "gemini-2.5-flash",
       contents: messages,
       config: {
-        systemInstruction: "Você é o Assistente Makeroom, um assistente AI prestativo e amigável para administradores. Você ajuda a criar configurações do site (como itens da loja, aulas, desafios, cursos, anúncios). Seja humano, simpático e conciso. Caso o usuário peça para criar algo e faltem parâmetros obrigatórios, pergunte de forma natural. IMPORTANTE: Se o usuário pedir para criar um quiz e não fornecer as perguntas, VOCÊ MESMO DEVE GERAR uma lista rica de perguntas e respostas com base no tema solicitado. Se tudo estiver correto, use a function call, confirmando que irá criar. Você está em fase Beta, então seja humilde quanto a erros.",
+        systemInstruction: "Você é o Assistente Makeroom, um assistente AI prestativo e amigável para administradores. Você ajuda a criar configurações do site (como itens da loja, aulas, desafios, cursos, anúncios). Seja humano, simpático e conciso. IMPORTANTE: Caso o usuário peça para criar algo (ex: uma aula, um desafio, um item) e forneça apenas informações parciais (ex: apenas o título, título e descrição, ou título e link), VOCÊ TEM TOTAL LIBERDADE E DEVE GERAR E PREENCHER CRIATIVAMENTE TODOS OS DADOS FALTANTES e parâmetros obrigatórios (descrição longa, pontos, categoria, estoque, preço, conteúdo, perguntas de quiz, template de código, instruções, asserções, etc.) para concluir e executar a criação DE IMEDIATO, SEM fazer perguntas adicionais ao usuário. Invente dados coerentes com o contexto. Sempre responda realizando a function call logo na primeira iteração. Você está em fase Beta, então seja humilde quanto a erros.",
         tools: [{ functionDeclarations: [createStoreItem, createLesson, createChallenge, createCourse, createAnnouncement] }]
       }
     });

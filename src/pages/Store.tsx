@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, memo } from 'react';
+import { useEffect, useState, useCallback, memo, useRef } from 'react';
 import { collection, getDocs, addDoc, serverTimestamp, doc, getDoc, query, where, orderBy, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { jsPDF } from 'jspdf';
@@ -264,6 +264,7 @@ export default function Store() {
   const [couponDiscountPercent, setCouponDiscountPercent] = useState<number>(0);
   const [showCouponModal, setShowCouponModal] = useState(false);
   const [couponInput, setCouponInput] = useState('');
+  const [showRecoveryToast, setShowRecoveryToast] = useState(false);
 
   const categories = ['Todos', 'Componentes', 'Kits', 'Ferramentas', 'Acessórios'];
   const HQ_COORDS: [number, number] = [-12.8767, -38.4725];
@@ -425,8 +426,39 @@ export default function Store() {
     fetchProducts();
   }, []);
 
-  // Load saved data from localStorage
+  const hydrationDoneRef = useRef(false);
+  const prevCartStringRef = useRef<string | null>(null);
+
+  // Load saved data and persistent cart from localStorage
   useEffect(() => {
+    // 1. Recover persistent cart items from last visit
+    try {
+      const savedCart = localStorage.getItem('makerroom_cart');
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart);
+        if (Object.keys(parsed).length > 0) {
+          setCart(parsed);
+          
+          // Check if 24 hours have passed since last cart update
+          const updatedAtStr = localStorage.getItem('makerroom_cart_updated_at');
+          if (updatedAtStr) {
+            const updatedAt = parseInt(updatedAtStr, 10);
+            const hoursPassed = (Date.now() - updatedAt) / (1000 * 60 * 60);
+            if (hoursPassed >= 24) {
+              setShowRecoveryToast(true);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Error restoring cart from localStorage:", e);
+    }
+    
+    // Mark hydration as done shortly after the initial effects run
+    setTimeout(() => {
+      hydrationDoneRef.current = true;
+    }, 100);
+
     const savedSaveData = localStorage.getItem('makerroom_save_data');
     if (savedSaveData !== null) {
       const shouldSave = savedSaveData === 'true';
@@ -466,6 +498,21 @@ export default function Store() {
     }
     setIsInitialLoadDone(true);
   }, []);
+
+  // Save cart modifications to localStorage automatically
+  useEffect(() => {
+    const currentCartStr = JSON.stringify(cart);
+    localStorage.setItem('makerroom_cart', currentCartStr);
+    
+    if (hydrationDoneRef.current && prevCartStringRef.current !== null && prevCartStringRef.current !== currentCartStr) {
+      if (Object.keys(cart).length > 0) {
+        localStorage.setItem('makerroom_cart_updated_at', Date.now().toString());
+      } else {
+        localStorage.removeItem('makerroom_cart_updated_at');
+      }
+    }
+    prevCartStringRef.current = currentCartStr;
+  }, [cart]);
 
   useEffect(() => {
     if (!isInitialLoadDone) return;
@@ -635,103 +682,266 @@ export default function Store() {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     
-    // Header
+    // Top Brand Accent (Orange Line)
+    doc.setFillColor(234, 88, 12); // Maker Orange
+    doc.rect(0, 0, pageWidth, 4, 'F');
+    
+    // Header Panel (Navy background)
     doc.setFillColor(15, 23, 42); // Slate 900
-    doc.rect(0, 0, pageWidth, 40, 'F');
+    doc.rect(0, 4, pageWidth, 38, 'F');
+    
+    // Brand Logo Style
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MAKEROOM', 18, 22);
+    
+    doc.setTextColor(249, 115, 22); // Bright Orange text
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ROBÓTICA e TECNOLOGIA', 18, 29);
+    
+    // High-tech Decorative barcode in white on header right
+    const barX = pageWidth - 68;
+    const barY = 13;
+    doc.setFillColor(255, 255, 255);
+    const barcodeWidths = [1.2, 0.4, 2.0, 0.4, 1.4, 0.4, 1.0, 2.0, 0.4, 1.0, 1.4, 0.4, 2.0, 1.0, 0.4, 1.0, 0.6, 2.2, 0.4, 1.2];
+    let currentBarX = barX;
+    barcodeWidths.forEach((w) => {
+      doc.rect(currentBarX, barY, w, 13, 'F');
+      currentBarX += w + 0.6;
+    });
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(24);
-    doc.setFont('helvetica', 'bold');
-    doc.text('MAKEROOM', 20, 25);
+    doc.setFontSize(7.5);
+    doc.setFont('courier', 'bold');
+    doc.text(`MAKEROOM-STORE-LOG-#${order.id.slice(-6).toUpperCase()}`, barX, 29);
     
-    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9.5);
     doc.setFont('helvetica', 'normal');
-    doc.text('COMPROVANTE DE PEDIDO', 20, 32);
+    doc.text('COMPROVANTE DE COMPRA', pageWidth - 18, 36, { align: 'right' });
     
-    // Order Info Box
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Informações do Pedido', 20, 55);
-    
+    // Aesthetic Outer Structural Technical Frame
     doc.setDrawColor(226, 232, 240); // Slate 200
-    doc.line(20, 58, pageWidth - 20, 58);
+    doc.setLineWidth(0.3);
+    doc.rect(12, 46, 186, 226); // Border surrounding content
     
-    doc.setFontSize(10);
+    // Frame annotation details (Aesthetics)
+    doc.setTextColor(148, 163, 184); // Slate 400
+    doc.setFontSize(6.5);
+    doc.setFont('courier', 'normal');
+    doc.text('[ORIGINAL RECIBO - MAKEROOM STORE]', 15, 49);
+    doc.text('[SISTEMA DE PAGAMENTO: MERCADO PAGO]', pageWidth - 15, 49, { align: 'right' });
+    
+    // Left Grid Panel: Pedido / Venda
+    doc.setFillColor(248, 250, 252); // Slate 50
+    doc.rect(16, 52, 86, 44, 'F');
+    doc.rect(16, 52, 86, 44, 'S');
+    
+    doc.setTextColor(71, 85, 105); // Slate 600
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DETALHES DA TRANSAÇÃO', 22, 60);
+    doc.setDrawColor(226, 232, 240);
+    doc.line(22, 63, 96, 63);
+    
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59); // Slate 800
     const date = order.createdAt?.toDate ? order.createdAt.toDate() : new Date();
-    doc.text(`ID do Pedido: #${order.id.slice(-8).toUpperCase()}`, 20, 68);
-    doc.text(`Data: ${date.toLocaleString('pt-BR')}`, 20, 75);
-    doc.text(`Status: ${order.status}`, 20, 82);
+    doc.text(`ID do Pedido: #${order.id.slice(-8).toUpperCase()}`, 22, 70);
+    doc.text(`Data e Hora: ${date.toLocaleString('pt-BR')}`, 22, 76);
+    doc.text(`Status do Pedido: ${order.status.toUpperCase()}`, 22, 82);
+    doc.text(`Pagamento Ref: ${order.paymentId || 'N/A'}`, 22, 88);
     
-    // Customer Info
-    doc.setFontSize(12);
+    // Right Grid Panel: Cliente
+    doc.setFillColor(248, 250, 252); // Slate 50
+    doc.rect(108, 52, 86, 44, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(108, 52, 86, 44, 'S');
+    
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('Dados do Cliente', 20, 100);
-    doc.line(20, 103, pageWidth - 20, 103);
+    doc.text('DADOS DO DESTINATÁRIO', 114, 60);
+    doc.line(114, 63, 188, 63);
     
-    doc.setFontSize(10);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    const name = order.customerInfo?.name || auth.currentUser?.displayName || 'N/A';
-    const email = order.userEmail || auth.currentUser?.email || 'N/A';
-    const cpf = order.customerInfo?.cpf || 'N/A';
-    doc.text(`Nome: ${name}`, 20, 113);
-    doc.text(`Email: ${email}`, 20, 120);
-    doc.text(`CPF: ${cpf}`, 20, 127);
+    doc.setTextColor(30, 41, 59);
+    const customerName = order.customerInfo?.name || auth.currentUser?.displayName || 'Cliente Maker';
+    const customerEmail = order.userEmail || auth.currentUser?.email || 'N/A';
+    const customerCpf = order.customerInfo?.cpf || 'N/A';
+    doc.text(`Nome: ${customerName}`, 114, 70);
+    doc.text(`E-mail: ${customerEmail}`, 114, 76);
+    doc.text(`CPF: ${customerCpf}`, 114, 82);
+    doc.text(`Telefone: ${order.customerInfo?.phone || 'N/A'}`, 114, 88);
     
-    // Delivery Info
-    doc.setFontSize(12);
+    // Dynamic Delivery Section Panel
+    doc.setFillColor(248, 250, 252);
+    doc.rect(16, 102, 178, 24, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(16, 102, 178, 24, 'S');
+    
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('Entrega / Retirada', 20, 145);
-    doc.line(20, 148, pageWidth - 20, 148);
+    doc.text('SISTEMA E MÉTODO DE LOGÍSTICA', 22, 109);
+    doc.line(22, 111, 188, 111);
     
-    doc.setFontSize(10);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
     if (order.deliveryMethod === 'pickup') {
-      doc.text('Método: Retirada na Escola', 20, 158);
-      doc.text(`Escola: ${order.schoolName || 'N/A'}`, 20, 165);
+      doc.text('Método: RETIRADA AGENDADA NA UNIDADE ESCOLA', 22, 118);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Ponto de Retirada: Unidade ${order.schoolName || 'Instituição Conveniada'}`, 22, 123);
     } else {
-      doc.text('Método: Entrega em Casa', 20, 158);
+      doc.text('Método: ENTREGA DOMICILIAR RÁPIDA (LOGÍSTICA MAKER)', 22, 118);
       const addr = order.deliveryAddress;
-      doc.text(`Endereço: ${addr?.street || 'N/A'}, ${addr?.neighborhood || 'N/A'}`, 20, 165);
-      doc.text(`Cidade: ${addr?.city || 'N/A'} - CEP: ${addr?.cep || 'N/A'}`, 20, 172);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Local de Entrega: ${addr?.street || 'N/A'}, ${addr?.neighborhood || 'N/A'} - ${addr?.city || 'N/A'} (CEP: ${addr?.cep || 'N/A'})`, 22, 123);
     }
     
-    // Items Table
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Itens do Pedido', 20, 190);
-    doc.line(20, 193, pageWidth - 20, 193);
+    // Table Headers (Items)
+    doc.setFillColor(15, 23, 42); // Navy Blue Header
+    doc.rect(16, 132, 178, 8, 'F');
     
-    doc.setFontSize(10);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('#', 20, 137.5);
+    doc.text('DISPOSITIVO / ITEM PEDIDO', 27, 137.5);
+    doc.text('CATEGORIA DO PRODUTO', 120, 137.5);
+    doc.text('PREÇO UNIT.', 190, 137.5, { align: 'right' });
+    
+    // Items Rows
+    let y = 147;
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    let y = 203;
     
     order.productIds.forEach((pid: string, index: number) => {
       const product = products.find(p => p.id === pid);
-      const name = product ? product.name : `Produto ID: ${pid}`;
-      const price = product ? `R$ ${product.price.toFixed(2)}` : '';
-      doc.text(`${index + 1}. ${name}`, 20, y);
-      if (price) doc.text(price, pageWidth - 50, y);
-      y += 8;
+      const name = product ? product.name : `Dispositivo Maker ID: ${pid}`;
+      const category = product ? product.category : 'Kit Robótico';
+      const priceVal = product ? product.price : 0;
+      const formattedPrice = `R$ ${priceVal.toFixed(2)}`;
+      
+      // Striped Row formatting
+      if (index % 2 === 1) {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(16, y - 5.5, 178, 8, 'F');
+      }
+      
+      doc.setTextColor(100, 116, 139);
+      doc.setFont('courier', 'bold');
+      doc.text(String(index + 1).padStart(2, '0'), 20, y);
+      
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(name.substring(0, 48), 27, y);
+      
+      doc.setTextColor(100, 116, 139);
+      doc.setFont('helvetica', 'normal');
+      doc.text(category.toUpperCase(), 120, y);
+      
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      doc.text(formattedPrice, 190, y, { align: 'right' });
+      
+      // Subtle Divider
+      doc.setDrawColor(241, 245, 249);
+      doc.setLineWidth(0.2);
+      doc.line(16, y + 2.5, 194, y + 2.5);
+      
+      y += 8.5;
     });
     
-    // Total
+    // Bottom Section: Totals Panel & Stamp
+    const totalsY = y + 4;
+    
+    // Closing Table line
     doc.setDrawColor(15, 23, 42);
-    doc.setLineWidth(0.5);
-    doc.line(20, y + 5, pageWidth - 20, y + 5);
+    doc.setLineWidth(0.4);
+    doc.line(16, totalsY, 194, totalsY);
     
-    doc.setFontSize(14);
+    // Authenticity Stamp left side
+    const stampX = 38;
+    const stampY = totalsY + 12;
+    doc.setDrawColor(234, 88, 12);
+    doc.setLineWidth(0.75);
+    doc.circle(stampX, stampY, 13, 'S');
+    
+    // Draw outer technical ring
+    doc.setDrawColor(254, 215, 170); // Light Orange
+    doc.setLineWidth(0.25);
+    doc.circle(stampX, stampY, 11, 'S');
+    
+    doc.setTextColor(234, 88, 12);
     doc.setFont('helvetica', 'bold');
-    doc.text(`TOTAL: R$ ${order.total.toFixed(2)}`, pageWidth - 20, y + 15, { align: 'right' });
+    doc.setFontSize(6.5);
+    doc.text('PEDIDO', stampX, stampY - 2, { align: 'center' });
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(7.5);
+    doc.text('APROVADO', stampX, stampY + 2, { align: 'center' });
+    doc.setTextColor(234, 88, 12);
+    doc.setFontSize(5);
+    doc.setFont('courier', 'bold');
+    doc.text('MAKEROOM', stampX, stampY + 6, { align: 'center' });
     
-    // Footer
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    doc.setTextColor(150, 150, 150);
-    doc.text('Este é um comprovante oficial da Maker Store. Guarde-o para sua segurança.', pageWidth / 2, 285, { align: 'center' });
+    // Financial Breakdown Block (Right align)
+    const subtotal = order.total - (order.deliveryFee || 0);
+    const deliveryFeeVal = order.deliveryFee || 0;
     
-    doc.save(`recibo-makeroom-${order.id.slice(-6)}.pdf`);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    
+    doc.text('Subtotal:', 124, totalsY + 8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text(`R$ ${subtotal.toFixed(2)}`, 190, totalsY + 8, { align: 'right' });
+    
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139);
+    doc.text('Taxa de Logística:', 124, totalsY + 14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(15, 23, 42);
+    doc.text(deliveryFeeVal > 0 ? `R$ ${deliveryFeeVal.toFixed(2)}` : 'R$ 0,00 (Grátis)', 190, totalsY + 14, { align: 'right' });
+    
+    // Grand Total Highlights banner
+    doc.setFillColor(254, 243, 199); // Soft light orange accent color
+    doc.rect(122, totalsY + 18, 72, 9, 'F');
+    
+    doc.setTextColor(234, 88, 12);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.text('TOTAL GERAL:', 126, totalsY + 24.2);
+    doc.text(`R$ ${order.total.toFixed(2)}`, 190, totalsY + 24.2, { align: 'right' });
+    
+    // Fine prints / security notice
+    doc.setTextColor(148, 163, 184); // Slate 400
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Este comprovante é verificado digitalmente e representa a confirmação de operação autorizada via gateway.', 16, 266);
+    
+    // Footer section
+    doc.setDrawColor(241, 245, 249);
+    doc.setLineWidth(0.5);
+    doc.line(12, 272, 198, 272);
+    
+    doc.setTextColor(51, 65, 85); // Slate 700
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.text('MAKEROOM ROBÓTICA - COMPONENTES E TECNOLOGIA AUTORAL', pageWidth / 2, 277, { align: 'center' });
+    
+    doc.setTextColor(148, 163, 184); // Slate 400
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.text('Salvador - BA, Brasil | Soluções Avançadas de Hardware e Software de Aprendizagem | www.makeroom.com.br', pageWidth / 2, 282, { align: 'center' });
+    
+    doc.save(`recibo-makeroom-${order.id.slice(-6).toUpperCase()}.pdf`);
   };
 
   const getPaymentErrorMessage = (statusDetail: string) => {
@@ -802,7 +1012,7 @@ export default function Store() {
     const cleanCode = couponInput.trim().toUpperCase();
     if (!cleanCode) return;
     
-    if (cleanCode === 'MAKER10') {
+    if (cleanCode === 'MAKER10' || cleanCode === 'RECUPERA10') {
       setCouponCode(cleanCode);
       setCouponDiscountPercent(10);
       setShowCouponModal(false);
@@ -1120,18 +1330,20 @@ export default function Store() {
       const docRef = await addDoc(collection(db, 'orders'), orderData);
       setLastOrderId(docRef.id);
 
-      // Notify admins
-      const adminsSnapshot = await getDocs(query(collection(db, 'public_profiles'), where('role', '==', 'admin')));
-      const adminUids = adminsSnapshot.docs.map(doc => doc.id);
-      // Fallback for main admin if not found in public_profiles yet
-      if (adminUids.length === 0) adminUids.push('T34b8wK7zHbe49t9X56oZ4eD8bA2'); // Replace with actual UID if known or keep looking in users for fallback
+      // Notify admins only if paid
+      if (status === 'Pago' || status === 'approved') {
+        const adminsSnapshot = await getDocs(query(collection(db, 'public_profiles'), where('role', '==', 'admin')));
+        const adminUids = adminsSnapshot.docs.map(doc => doc.id);
+        // Fallback for main admin if not found in public_profiles yet
+        if (adminUids.length === 0) adminUids.push('T34b8wK7zHbe49t9X56oZ4eD8bA2'); // Replace with actual UID if known or keep looking in users for fallback
 
-      for (const uid of adminUids) {
-        await sendNotification(
-          uid,
-          'Novo Pedido Realizado! 🛍️',
-          `Um novo pedido de R$ ${totalPrice.toFixed(2)} foi realizado por ${customerInfo.name || auth.currentUser?.email}.`
-        );
+        for (const uid of adminUids) {
+          await sendNotification(
+            uid,
+            'Novo Pedido Realizado! 🛍️',
+            `Um novo pedido de R$ ${totalPrice.toFixed(2)} foi realizado por ${customerInfo.name || auth.currentUser?.email}.`
+          );
+        }
       }
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'orders');
@@ -1191,6 +1403,19 @@ export default function Store() {
                 status: 'Pago'
               });
             }
+          }
+          
+          // Notify admins
+          const adminsSnapshot = await getDocs(query(collection(db, 'public_profiles'), where('role', '==', 'admin')));
+          const adminUids = adminsSnapshot.docs.map(doc => doc.id);
+          if (adminUids.length === 0) adminUids.push('T34b8wK7zHbe49t9X56oZ4eD8bA2');
+          
+          for (const uid of adminUids) {
+            await sendNotification(
+              uid,
+              'Novo Pedido Realizado! 🛍️',
+              `Um novo pedido de R$ ${totalPrice.toFixed(2)} foi pago por ${customerInfo.name || auth.currentUser?.email}. (PIX)`
+            );
           }
         } catch (err) {
           handleFirestoreError(err, OperationType.UPDATE, 'orders');
@@ -2200,128 +2425,130 @@ export default function Store() {
           </div>
         )}
       </AnimatePresence>
-      {selectedProduct && (
-        <div 
-          className="fixed inset-0 z-[300] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-0 md:p-4"
-          onClick={() => setSelectedProduct(null)}
-        >
-          <div 
-            className="bg-white dark:bg-zinc-900 w-full max-w-4xl rounded-none md:rounded-[40px] overflow-hidden shadow-2xl flex flex-col md:flex-row h-full md:h-auto md:max-h-[90vh] border border-slate-200 dark:border-white/10"
+
+      <AnimatePresence>
+        {selectedProduct && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-[300] bg-white dark:bg-zinc-900 flex flex-col md:flex-row w-full h-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-              <div className="w-full md:w-1/2 aspect-square md:aspect-auto bg-white dark:bg-white relative flex items-center justify-center p-4 transition-colors">
-                <img 
-                  src={selectedProduct.imageUrl} 
-                  alt={selectedProduct.name} 
-                  className="max-w-full max-h-full object-contain"
-                  referrerPolicy="no-referrer"
-                />
-                <button 
-                  onClick={() => setSelectedProduct(null)}
-                  className="absolute top-4 left-4 p-2 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md rounded-full text-slate-900 dark:text-white hover:bg-white dark:hover:bg-zinc-800 transition-all md:hidden"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+            {/* Universal Close Button */}
+            <button 
+              onClick={() => setSelectedProduct(null)}
+              className="absolute top-6 right-6 p-2.5 bg-slate-100/90 dark:bg-zinc-800/90 hover:bg-slate-200 dark:hover:bg-zinc-700 backdrop-blur-md rounded-full text-slate-800 dark:text-white transition-all z-50 shadow-lg border border-slate-200/50 dark:border-white/10 active:scale-95 cursor-pointer"
+              title="Fechar"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            {/* Image Section */}
+            <div className="w-full md:w-1/2 h-[45%] md:h-full bg-white relative flex items-center justify-center p-8 md:p-12 transition-colors border-b md:border-b-0 md:border-r border-slate-150 dark:border-white/5">
+              <img 
+                src={selectedProduct.imageUrl} 
+                alt={selectedProduct.name} 
+                className="max-w-[85%] max-h-[85%] object-contain"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            
+            {/* Content Info Section */}
+            <div className="flex-grow md:w-1/2 h-[55%] md:h-full p-6 md:p-12 lg:p-16 flex flex-col overflow-y-auto custom-scrollbar bg-slate-50 dark:bg-zinc-900 select-none">
+              <div className="flex items-center justify-between mb-4 md:mb-6 shrink-0">
+                <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest leading-none">
+                  {selectedProduct.category}
+                </span>
               </div>
               
-              <div className="flex-1 p-6 md:p-8 flex flex-col overflow-y-auto custom-scrollbar selection:bg-brand-500/30">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
-                    {selectedProduct.category}
+              <h2 className="text-2xl md:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white mb-4 tracking-tight leading-tight shrink-0">{selectedProduct.name}</h2>
+              
+              <div className="flex flex-col mb-6 md:mb-8 shrink-0">
+                {(selectedProduct.promotionPrice || 0) > 0 && (
+                  <span className="text-sm md:text-base text-slate-400 dark:text-slate-500 line-through font-medium mb-1">
+                    De R$ {selectedProduct.originalPrice?.toFixed(2)}
                   </span>
-                  <button 
-                    onClick={() => setSelectedProduct(null)}
-                    className="hidden md:block p-2 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 rounded-full text-slate-400 dark:text-slate-500 transition-all"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-                
-                <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-2">{selectedProduct.name}</h2>
-                <div className="flex flex-col mb-6">
+                )}
+                <div className="flex items-center gap-3">
+                  <span className={`text-3xl md:text-4xl lg:text-5xl font-black ${(selectedProduct.promotionPrice || 0) > 0 ? 'text-red-500' : 'text-brand-600 dark:text-brand-400'}`}>
+                    R$ {selectedProduct.price.toFixed(2)}
+                  </span>
                   {(selectedProduct.promotionPrice || 0) > 0 && (
-                    <span className="text-sm text-slate-400 dark:text-slate-500 line-through font-medium">
-                      De R$ {selectedProduct.originalPrice?.toFixed(2)}
+                    <span className="bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-widest shadow-sm">
+                      Economize R$ {(selectedProduct.originalPrice! - selectedProduct.price).toFixed(2)}
                     </span>
                   )}
-                  <div className="flex items-center gap-3">
-                    <span className={`text-3xl font-black ${(selectedProduct.promotionPrice || 0) > 0 ? 'text-red-500' : 'text-brand-600 dark:text-brand-400'}`}>
-                      R$ {selectedProduct.price.toFixed(2)}
-                    </span>
-                    {(selectedProduct.promotionPrice || 0) > 0 && (
-                      <span className="bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400 px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                        Economize R$ {(selectedProduct.originalPrice! - selectedProduct.price).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="space-y-6 flex-1">
-                  <div>
-                    <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Descrição</h3>
-                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap text-sm">{selectedProduct.description}</p>
-                  </div>
-                  
-                  {selectedProduct.category === 'Kits' && (
-                    <div className="space-y-6">
-                      {selectedProduct.items && selectedProduct.items.length > 0 && (
-                        <div>
-                          <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Componentes Inclusos</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {getKitItems(selectedProduct.items).map(item => (
-                              <div key={item.id} className="flex items-center gap-3 p-2.5 bg-white dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/10">
-                                <div className="w-10 h-10 rounded-lg bg-white dark:bg-white overflow-hidden flex-shrink-0 shadow-sm border border-slate-100 p-1 transition-colors">
-                                  <img src={item.imageUrl} alt={item.name} className="w-full h-full object-contain" />
-                                </div>
-                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{item.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedProduct.extraItems && selectedProduct.extraItems.length > 0 && (
-                        <div>
-                          <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Outros Itens</h3>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedProduct.extraItems.map((item, index) => (
-                              <div key={index} className="flex items-center gap-2 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                                <div className="w-1 h-1 rounded-full bg-brand-500" />
-                                {item}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
-                <div className="pt-6 mt-6 border-t border-slate-100 dark:border-white/5 flex flex-col sm:flex-row items-center gap-4">
-                  <div className="flex-1 w-full text-left">
-                    <p className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-0.5">Disponibilidade</p>
-                    <p className={`font-bold text-base ${selectedProduct.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                      {selectedProduct.stock > 0 ? `${selectedProduct.stock} em estoque` : 'Esgotado'}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      if (addToCart(selectedProduct.id)) {
-                        setSelectedProduct(null);
-                      }
-                    }}
-                    disabled={selectedProduct.stock === 0 || userRole === 'admin'}
-                    title={userRole === 'admin' ? 'Administradores não podem fazer compras na loja.' : ''}
-                    className="w-full sm:w-auto bg-slate-900 dark:bg-brand-500 hover:bg-slate-800 dark:hover:bg-brand-600 text-white font-semibold px-6 py-3 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
-                  >
-                    <ShoppingCart className="w-4 h-4" />
-                    Adicionar
-                  </button>
                 </div>
               </div>
+              
+              <div className="space-y-8 flex-1">
+                <div>
+                  <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3">Descrição</h3>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed whitespace-pre-wrap text-sm md:text-base">{selectedProduct.description}</p>
+                </div>
+                
+                {selectedProduct.category === 'Kits' && (
+                  <div className="space-y-8">
+                    {selectedProduct.items && selectedProduct.items.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Componentes Inclusos</h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {getKitItems(selectedProduct.items).map(item => (
+                            <div key={item.id} className="flex items-center gap-3.5 p-3 bg-white dark:bg-zinc-800 rounded-xl border border-slate-100 dark:border-white/10 shadow-sm">
+                              <div className="w-12 h-12 rounded-lg bg-white dark:bg-white overflow-hidden flex-shrink-0 shadow-sm border border-slate-100 p-1.5 transition-colors">
+                                <img src={item.imageUrl} alt={item.name} className="w-full h-full object-contain" />
+                              </div>
+                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{item.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedProduct.extraItems && selectedProduct.extraItems.length > 0 && (
+                      <div>
+                        <h3 className="text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">Outros Itens</h3>
+                        <div className="flex flex-wrap gap-2.5">
+                          {selectedProduct.extraItems.map((item, index) => (
+                            <div key={index} className="flex items-center gap-2 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/10 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 shadow-sm">
+                              <div className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <div className="pt-8 mt-8 border-t border-slate-100 dark:border-white/5 flex flex-col sm:flex-row items-center gap-6 shrink-0 mt-auto">
+                <div className="flex-1 w-full text-left">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-1">Disponibilidade</p>
+                  <p className={`font-black text-lg ${selectedProduct.stock > 0 ? 'text-emerald-600' : 'text-red-650'}`}>
+                    {selectedProduct.stock > 0 ? `${selectedProduct.stock} unidades em estoque` : 'Esgotado'}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => {
+                    if (addToCart(selectedProduct.id)) {
+                      setSelectedProduct(null);
+                    }
+                  }}
+                  disabled={selectedProduct.stock === 0 || userRole === 'admin'}
+                  title={userRole === 'admin' ? 'Administradores não podem fazer compras na loja.' : ''}
+                  className="w-full sm:w-auto bg-slate-900 dark:bg-brand-500 hover:bg-slate-800 dark:hover:bg-brand-600 text-white font-extrabold px-8 py-4 rounded-2xl transition-all flex items-center justify-center gap-2.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-xl uppercase tracking-wider text-xs cursor-pointer"
+                >
+                  <ShoppingCart className="w-4.5 h-4.5" />
+                  Adicionar ao Carrinho
+                </button>
+              </div>
             </div>
-          </div>
+          </motion.div>
         )}
+      </AnimatePresence>
 
       {/* Payment Modal */}
       {paymentStatus && (
@@ -2512,6 +2739,64 @@ export default function Store() {
           </div>
         </div>
       )}
+
+      <AnimatePresence>
+        {showRecoveryToast && totalItems > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            className="fixed bottom-6 left-6 right-6 md:left-auto md:right-8 md:max-w-md bg-indigo-950/95 text-white p-5 rounded-3xl border border-indigo-500/30 shadow-2xl z-[600] backdrop-blur-md"
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 bg-indigo-500/20 rounded-2xl flex items-center justify-center border border-indigo-400/30 shrink-0 text-lg animate-pulse">
+                🌟
+              </div>
+              <div className="flex-1 space-y-1">
+                <h4 className="text-sm font-black uppercase tracking-wider text-indigo-200">Carrinho Recuperado!</h4>
+                <p className="text-xs text-slate-300 leading-relaxed font-semibold">
+                  Restauramos os <span className="text-indigo-300 font-bold">{totalItems} itens</span> que você deixou salvos da sua última visita! 
+                </p>
+                <p className="text-[11px] text-amber-400 font-bold">
+                  🎁 Use o cupom especial <span className="bg-amber-400/10 border border-amber-400/30 px-1 py-0.5 rounded text-white font-mono">RECUPERA10</span> para obter 10% OFF!
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRecoveryToast(false)}
+                className="text-slate-400 hover:text-white text-xs transition-colors p-1 cursor-pointer"
+                id="close-recovery-toast-btn"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex gap-2.5 mt-4">
+              <button
+                type="button"
+                id="apply-recovery-coupon-btn"
+                onClick={() => {
+                  setCouponCode('RECUPERA10');
+                  setCouponDiscountPercent(10);
+                  setShowRecoveryToast(false);
+                  setShowCart(true);
+                  alert('Cupom de 10% recuperador ativado! 🎉');
+                }}
+                className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black py-2.5 rounded-xl uppercase tracking-wider transition-all shadow shadow-indigo-500/20 active:scale-95 cursor-pointer"
+              >
+                Ativar Cupom & Abrir Carrinho
+              </button>
+              <button
+                type="button"
+                id="ignore-recovery-toast-btn"
+                onClick={() => setShowRecoveryToast(false)}
+                className="bg-white/10 hover:bg-white/20 text-white text-xs font-black px-4 py-2.5 rounded-xl uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Ignorar
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

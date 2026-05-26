@@ -4,6 +4,7 @@ import { awardPoints } from '../services/userService';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Zap, CheckCircle, Clock, ChevronRight, Send, AlertCircle, X, RefreshCcw } from 'lucide-react';
+import { StudentCodePlayground } from '../components/StudentCodePlayground';
 
 interface Question {
   id: string;
@@ -17,14 +18,24 @@ interface Question {
   correctAnswers: string[];
 }
 
+interface CodeAssertion {
+  testName: string;
+  assertionBody: string;
+}
+
 interface Challenge {
   id: string;
   title: string;
   description: string;
-  type: 'quiz' | 'activity';
+  type: 'quiz' | 'activity' | 'code';
   points: number;
   teamId?: string;
   questions?: Question[];
+  codeLanguage?: 'html' | 'javascript';
+  codeTemplate?: string;
+  codeInstructions?: string;
+  codeAssertions?: CodeAssertion[];
+  isPublic?: boolean;
 }
 
 interface Submission {
@@ -47,6 +58,7 @@ export default function Challenges() {
   const [submissions, setSubmissions] = useState<{ [id: string]: Submission }>({});
   const [cooldowns, setCooldowns] = useState<{ [id: string]: QuizCooldown }>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [cameFromCourseId, setCameFromCourseId] = useState<string | null>(null);
   const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null);
   const [submissionContent, setSubmissionContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,6 +81,9 @@ export default function Challenges() {
     if (!isLoading && challenges.length > 0 && location.state?.challengeId) {
       const challenge = challenges.find(c => c.id === location.state.challengeId);
       if (challenge) {
+        if (location.state.courseId) {
+          setCameFromCourseId(location.state.courseId);
+        }
         if (challenge.type === 'quiz') {
           startQuiz(challenge);
         } else {
@@ -91,7 +106,8 @@ export default function Challenges() {
         // 1. Get challenges (one-time)
         try {
           const challengesSnapshot = await getDocs(collection(db, 'challenges'));
-          const challengesList = challengesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Challenge));
+          const challengesList = challengesSnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as Challenge));
           setChallenges(challengesList);
         } catch (err) {
           handleFirestoreError(err, OperationType.LIST, 'challenges');
@@ -170,6 +186,9 @@ export default function Challenges() {
       setCancelConfirmation(null);
       fetchData();
       showToast('Quiz cancelado. Você poderá tentar novamente em 15 minutos.', 'warning');
+      if (cameFromCourseId) {
+        navigate(`/courses/${cameFromCourseId}`);
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'quizCooldowns');
     }
@@ -335,18 +354,25 @@ export default function Challenges() {
         ...prev, 
         [selectedChallenge.id]: { id: docRef.id, challengeId: selectedChallenge.id, status: 'pending' } 
       }));
+      setIsSubmitting(false);
       showToast('Atividade enviada com sucesso!', 'success');
-      setSelectedChallenge(null);
-      setSubmissionContent('');
+      
+      setTimeout(() => {
+        setSelectedChallenge(null);
+        setSubmissionContent('');
+        if (cameFromCourseId) {
+          navigate(`/courses/${cameFromCourseId}`);
+        }
+      }, 2000);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, 'submissions');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
-  const completedChallenges = challenges.filter(c => !!submissions[c.id]);
-  const availableChallenges = challenges.filter(c => !submissions[c.id]);
+  const publicChallenges = challenges.filter(c => c.isPublic !== false);
+  const completedChallenges = publicChallenges.filter(c => !!submissions[c.id]);
+  const availableChallenges = publicChallenges.filter(c => !submissions[c.id]);
 
   if (isLoading) {
     return (
@@ -372,7 +398,7 @@ export default function Challenges() {
           </div>
           <div>
             <p className="text-[10px] text-brand-600 dark:text-brand-400 font-bold uppercase tracking-wider">Concluídos</p>
-            <p className="text-slate-900 dark:text-white font-bold text-sm md:text-base">{Object.keys(submissions).length} / {challenges.length} Desafios</p>
+            <p className="text-slate-900 dark:text-white font-bold text-sm md:text-base">{completedChallenges.length} / {publicChallenges.length} Desafios</p>
           </div>
         </div>
       </header>
@@ -581,7 +607,12 @@ export default function Challenges() {
               </div>
               <div className="flex gap-4">
                 <button 
-                  onClick={() => setStartConfirmation(null)}
+                  onClick={() => {
+                    setStartConfirmation(null);
+                    if (cameFromCourseId) {
+                      navigate(`/courses/${cameFromCourseId}`);
+                    }
+                  }}
                   className="flex-1 px-6 py-4 rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
                   Cancelar
@@ -633,17 +664,21 @@ export default function Challenges() {
 
       {/* Review Quiz Modal */}
       {reviewQuiz && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[90] flex items-center justify-center p-4">
-          <div 
-            className="bg-white dark:bg-zinc-900 p-6 md:p-10 rounded-[32px] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-slate-100 dark:border-white/10 transition-colors"
-          >
+        <div className="fixed inset-0 bg-white dark:bg-zinc-950 z-[100] flex items-center justify-center transition-all">
+          <div className="overflow-y-auto w-full h-full flex flex-col items-center p-6 md:p-12">
+            <div className="w-full max-w-3xl flex flex-col">
               <div className="flex items-center justify-between mb-8">
                 <div>
                   <h2 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Revisão: {reviewQuiz.challenge.title}</h2>
                   <p className="text-slate-500 dark:text-slate-400 font-medium">Sua nota: <span className="text-brand-600 dark:text-brand-400 font-bold">{reviewQuiz.submission.grade}%</span></p>
                 </div>
                 <button 
-                  onClick={() => setReviewQuiz(null)}
+                  onClick={() => {
+                    setReviewQuiz(null);
+                    if (cameFromCourseId) {
+                      navigate(`/courses/${cameFromCourseId}`);
+                    }
+                  }}
                   className="w-10 h-10 md:w-12 md:h-12 bg-slate-50 dark:bg-white/5 rounded-2xl flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -724,22 +759,72 @@ export default function Challenges() {
               </div>
 
               <button 
-                onClick={() => setReviewQuiz(null)}
+                onClick={() => {
+                  setReviewQuiz(null);
+                  if (cameFromCourseId) {
+                    navigate(`/courses/${cameFromCourseId}`);
+                  }
+                }}
                 className="w-full bg-slate-900 dark:bg-brand-500 text-white font-bold py-4 rounded-2xl hover:bg-slate-800 dark:hover:bg-brand-600 transition-all shadow-lg dark:shadow-none"
               >
                 Fechar Revisão
               </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
       {/* Submission Modal */}
       {selectedChallenge && (
-        <div className={`fixed inset-0 z-[100] flex items-center justify-center transition-all ${
-          selectedChallenge.type === 'quiz' 
-            ? 'bg-white dark:bg-zinc-950' 
-            : 'bg-slate-900/40 backdrop-blur-sm p-4'
-        }`}>
+        selectedChallenge.type === 'code' ? (
+          <StudentCodePlayground 
+            challenge={selectedChallenge}
+            onCancel={() => {
+              setSelectedChallenge(null);
+              if (cameFromCourseId) {
+                navigate(`/courses/${cameFromCourseId}`);
+              }
+            }}
+            onComplete={async (code) => {
+              setIsSubmitting(true);
+              try {
+                const earnedPoints = selectedChallenge.points;
+                
+                const docRef = await addDoc(collection(db, 'submissions'), {
+                  challengeId: selectedChallenge.id,
+                  userId: auth.currentUser?.uid,
+                  userEmail: auth.currentUser?.email,
+                  status: 'graded',
+                  grade: 100,
+                  createdAt: serverTimestamp(),
+                  earnedPoints: earnedPoints,
+                  content: code
+                });
+                
+                const newSubmission: Submission = {
+                  id: docRef.id,
+                  challengeId: selectedChallenge.id,
+                  status: 'graded',
+                  earnedPoints: earnedPoints,
+                  grade: 100
+                };
+                
+                await awardPoints(auth.currentUser?.uid || '', auth.currentUser?.email || '', earnedPoints);
+                setSubmissions(prev => ({ ...prev, [selectedChallenge.id]: newSubmission }));
+                setIsSubmitting(false);
+              } catch (err) {
+                console.error(err);
+                showToast('Erro ao guardar a sua submissão.', 'error');
+                setIsSubmitting(false);
+              }
+            }}
+          />
+        ) : (
+          <div className={`fixed inset-0 z-[100] flex items-center justify-center transition-all ${
+            selectedChallenge.type === 'quiz' 
+              ? 'bg-white dark:bg-zinc-950' 
+              : 'bg-slate-900/40 backdrop-blur-sm p-4'
+          }`}>
           <div 
             className={`overflow-y-auto transition-all ${
               selectedChallenge.type === 'quiz'
@@ -758,6 +843,9 @@ export default function Challenges() {
                       setCancelConfirmation(selectedChallenge.id);
                     } else {
                       setSelectedChallenge(null);
+                      if (cameFromCourseId) {
+                        navigate(`/courses/${cameFromCourseId}`);
+                      }
                     }
                   }} 
                   className="p-2 bg-slate-100 dark:bg-white/5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
@@ -817,13 +905,16 @@ export default function Challenges() {
                 </div>
               )}
 
-              <div className="flex gap-4 sticky bottom-0 bg-white dark:bg-zinc-950 py-6 md:py-8 border-t border-slate-100 dark:border-white/10">
+              <div className="flex gap-4 py-6 md:py-8 mt-6 border-t border-slate-100 dark:border-white/10">
                 <button 
                   onClick={() => {
                     if (activeQuiz) {
                       setCancelConfirmation(selectedChallenge.id);
                     } else {
                       setSelectedChallenge(null);
+                      if (cameFromCourseId) {
+                        navigate(`/courses/${cameFromCourseId}`);
+                      }
                     }
                   }}
                   className="flex-1 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 font-bold py-4 rounded-2xl hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
@@ -845,6 +936,7 @@ export default function Challenges() {
             </div>
           </div>
         </div>
+        )
       )}
     </div>
   );

@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   Loader2,
   AlertCircle,
+  AlertTriangle,
   Award,
   Trophy,
   Star,
@@ -46,6 +47,7 @@ export default function AdminDashboard() {
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [orderActivities, setOrderActivities] = useState<RecentActivity[]>([]);
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([]);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [isResetting, setIsResetting] = useState(false);
@@ -391,8 +393,12 @@ export default function AdminDashboard() {
         setRecentActivity(combinedActivities);
         setOrderActivities(orderActivities);
 
-        const pendingOrdersList = allOrders
-          .filter((o: any) => !['Cancelado', 'Entregue', 'Pronto para retirada'].includes(o.status))
+        const pendingOrdersFull = allOrders
+          .filter((o: any) => ['Pago', 'approved', 'Em separação', 'Em trânsito'].includes(o.status));
+        
+        setPendingOrdersCount(pendingOrdersFull.length);
+
+        const pendingOrdersList = pendingOrdersFull
           .sort((a: any, b: any) => {
             const dateA = a.createdAt?.toDate?.() || new Date(0);
             const dateB = b.createdAt?.toDate?.() || new Date(0);
@@ -448,6 +454,7 @@ export default function AdminDashboard() {
     { name: 'Prêmio', path: '/admin/rank-prize', icon: Star, color: 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20', description: 'Recompensa do ranking' },
     { name: 'Anúncios', path: '/admin/announcements', icon: Megaphone, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20', description: 'Banners rotativos' },
     { name: 'Projetos', path: '/admin/notes', icon: FileText, color: 'text-slate-500 bg-slate-500/10 border-slate-500/20', description: 'Banco de anotações' },
+    { name: 'Denúncias Shorts', path: '/admin/reported-videos', icon: AlertTriangle, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20', description: 'Vídeos reportados' },
   ];
 
   return (
@@ -496,7 +503,7 @@ export default function AdminDashboard() {
           <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">Loja & Logística</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {adminModulesStore.map((module) => {
-              const hasPending = module.path === '/admin/orders' && pendingOrders.length > 0;
+              const hasPending = module.path === '/admin/orders' && pendingOrdersCount > 0;
               return (
                 <Link 
                   key={module.path} 
@@ -507,7 +514,7 @@ export default function AdminDashboard() {
                 >
                   {hasPending && (
                     <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-black px-2 py-0.5 rounded-bl min-w-max uppercase">
-                      {pendingOrders.length} Req.
+                      {pendingOrdersCount} Req.
                     </div>
                   )}
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-105 ${module.color}`}>

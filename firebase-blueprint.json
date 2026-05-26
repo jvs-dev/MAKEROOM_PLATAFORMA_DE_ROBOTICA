@@ -10,6 +10,7 @@
         "email": { "type": "string", "format": "email" },
         "role": { "type": "string", "enum": ["admin", "student", "external"] },
         "admin": { "type": "boolean", "description": "If true, user has admin privileges." },
+        "banned": { "type": "boolean", "description": "If true, the user is banned from the platform." },
         "teamId": { "type": "string", "description": "ID of the team (turma) the student belongs to." },
         "room": { "type": "string", "description": "The room (sala) assigned to the student." },
         "points": { "type": "number", "description": "Total points earned by the student." },
